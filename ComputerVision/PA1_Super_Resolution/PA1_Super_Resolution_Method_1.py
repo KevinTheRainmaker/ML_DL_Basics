@@ -52,4 +52,4 @@ if __name__ == "__main__":
     # print(img_low.shape)
 
     result1 = descent_gradient(img_high, img_low, height, width, max_iter)
-    cv2.imwrite(dir_path + "results/method1.png")
+    cv2.imwrite(dir_path + "results/method1.png", result1)
