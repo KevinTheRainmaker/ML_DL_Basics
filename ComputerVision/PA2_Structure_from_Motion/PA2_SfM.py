@@ -1,29 +1,33 @@
 import numpy as np
 import cv2 as cv
 
+import os
+
 import matlab.engine
 eng = matlab.engine.start_matlab()
-eng.addpath("/Users/kangbeenko/Desktop/GitHub_Repository/ML_DL_Basics/ComputerVision/PA2_Structure_from_Motion/SfM/Step2")  # 'calibrated_fivepoint.m'가 위치한 경로
+eng.addpath(os.path.join(os.getcwd(), "PA2_Structure_from_Motion/SfM/Step2"))  # 'calibrated_fivepoint.m'가 위치한 경로
 
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import os
 
 # MAXITER = 100
-MAXITER = 1
+MAXITER = 100
 threshold = 5e-4
 
 # intrinsic parameter
 K = np.array([[3451.5, 0.0, 2312.0], [0.0, 3451.5, 1734], [0.0,0.0,1.0]])
 K_inv = np.linalg.inv(K)
 
+################################################################################################################################
 # Step 1: Feature Extraction & Matching
-img1 = cv.imread(os.path.join(os.getcwd(), "SfM/Data/sfm03.jpg"))
-img2 = cv.imread(os.path.join(os.getcwd(), "SfM/Data/sfm04.jpg"))
+################################################################################################################################
+img1 = cv.imread(os.path.join(os.getcwd(), "PA2_Structure_from_Motion/SfM/Data/sfm03.jpg"))
+img2 = cv.imread(os.path.join(os.getcwd(), "PA2_Structure_from_Motion/SfM/Data/sfm04.jpg"))
 
 # create SIFT instance
-sift = cv.xfeatures2d.SIFT_create()
+sift = cv.SIFT_create()
+# sift = cv.xfeatures2d.SIFT_create()
 
 # detect and compute keypoints
 img1_kp, img1_des = sift.detectAndCompute(img1, None)
@@ -33,7 +37,7 @@ img1_drawKps = cv.drawKeypoints(img1, img1_kp, None)
 img2_drawKps = cv.drawKeypoints(img2, img2_kp, None)
 
 # save result as image
-cv.imwrite('PA2_Sturucture_from_Motion/results/sift_keypoints.jpg',img1_drawKps)
+cv.imwrite('PA2_Structure_from_Motion/results/sift_keypoints.jpg',img1_drawKps)
 
 # Brute force matching with k=2
 bf = cv.BFMatcher()
@@ -47,7 +51,9 @@ sorted_matches = sorted(good, key=lambda x: x.distance)
 res = cv.drawMatches(img1, img1_kp, img2, img2_kp, sorted_matches, img2, flags=2) 
 cv.imwrite('PA2_Structure_from_Motion/results/sift_bfMatcher.jpg',res)
 
+################################################################################################################################
 # Step 2: Essential Matrix Estimation
+################################################################################################################################
 query_idx = [match.queryIdx for match in sorted_matches]
 train_idx = [match.trainIdx for match in sorted_matches]
 
@@ -93,10 +99,11 @@ inliner = np.array(inliner).reshape(-1)
 
 # save
 df = pd.DataFrame(best_E)
-df.to_csv('./results/EssentialMatrix.csv')
+df.to_csv('PA2_Structure_from_Motion/results/EssentialMatrix.csv')
 
-
+################################################################################################################################
 # Step 3: Essential Matrix Decomposition
+################################################################################################################################
 U, S, VT = np.linalg.svd(best_E, full_matrices=True)
 
 W = np.array([[0.0, -1.0, 0.0],
@@ -121,13 +128,17 @@ for i in range(4):
         a = kp1[j].flatten()
         b = kp2[j].flatten()
         c = np.concatenate((a, b))
+        print(c.shape)
+
         d = tmp @ c.T
         if np.any(d<0):
-            break
+            print(f'camera matrix {i}: not infront of both cam')
         else:
             camera_matrix = P[i]
             
+################################################################################################################################
 # Step 4: Triangulation
+################################################################################################################################
 Rt0 = np.hstack((np.eye(3),np.zeros((3, 1))))
 Rt1 = K @ camera_matrix
 
