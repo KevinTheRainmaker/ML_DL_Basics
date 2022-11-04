@@ -8,6 +8,8 @@ eng.addpath("/Users/kangbeenko/Desktop/GitHub_Repository/ML_DL_Basics/ComputerVi
 import pandas as pd
 import matplotlib.pyplot as plt
 
+import os
+
 # MAXITER = 100
 MAXITER = 1
 threshold = 5e-4
@@ -17,8 +19,8 @@ K = np.array([[3451.5, 0.0, 2312.0], [0.0, 3451.5, 1734], [0.0,0.0,1.0]])
 K_inv = np.linalg.inv(K)
 
 # Step 1: Feature Extraction & Matching
-img1 = cv.imread('/Users/kangbeenko/Desktop/GitHub_Repository/ML_DL_Basics/ComputerVision/PA2_Structure_from_Motion/SfM/Data/sfm03.jpg')
-img2 = cv.imread('/Users/kangbeenko/Desktop/GitHub_Repository/ML_DL_Basics/ComputerVision/PA2_Structure_from_Motion/SfM/Data/sfm04.jpg')
+img1 = cv.imread(os.path.join(os.getcwd(), "SfM/Data/sfm03.jpg"))
+img2 = cv.imread(os.path.join(os.getcwd(), "SfM/Data/sfm04.jpg"))
 
 # create SIFT instance
 sift = cv.xfeatures2d.SIFT_create()
@@ -31,7 +33,7 @@ img1_drawKps = cv.drawKeypoints(img1, img1_kp, None)
 img2_drawKps = cv.drawKeypoints(img2, img2_kp, None)
 
 # save result as image
-cv.imwrite('PA2_Structure_from_Motion/results/sift_keypoints.jpg',img1_drawKps)
+cv.imwrite('PA2_Sturucture_from_Motion/results/sift_keypoints.jpg',img1_drawKps)
 
 # Brute force matching with k=2
 bf = cv.BFMatcher()
