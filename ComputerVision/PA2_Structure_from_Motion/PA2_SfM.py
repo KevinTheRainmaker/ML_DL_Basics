@@ -37,6 +37,10 @@ matches = bf.knnMatch(img1_des, img2_des, k=2)
 good = [m1 for m1, m2 in matches if m1.distance < 0.8 * m2.distance]
 sorted_good = sorted(good, key=lambda x: x.distance)
 
+# option: default Brute-force Matching
+# matches = bf.match(img1_des,img2_des)
+# sorted_good = sorted(matches, key = lambda x : x.distance)
+
 print(f'# of matches: {len(sorted_good)}')
 
 # save result as image
@@ -168,5 +172,5 @@ Z = np.concatenate((Z, p3ds[2]))
 fig = plt.figure(figsize=(30,30))
 ax = plt.axes(projection='3d')
 ax.scatter3D(X, Y, Z, c='b', marker='o') 
-plt.show()
 plt.savefig('./PA2_Structure_from_Motion/results/3D_result.jpg')
+plt.show()
