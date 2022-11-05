@@ -1,9 +1,6 @@
 import numpy as np
 import cv2 as cv
 
-import os
-import glob
-
 import matlab.engine
 eng = matlab.engine.start_matlab()
 eng.addpath("./PA2_Structure_from_Motion/SfM/Step2")  # 'calibrated_fivepoint.m'가 위치한 경로
@@ -27,7 +24,6 @@ img2 = cv.imread('./PA2_Structure_from_Motion/SfM/Data/sfm04.jpg')
 
 # create SIFT instance
 sift = cv.SIFT_create()
-# sift = cv.xfeatures2d.SIFT_create()
 
 # detect and compute keypoints
 img1_kp, img1_des = sift.detectAndCompute(img1, None)
@@ -143,8 +139,6 @@ for i in range(4):
             print(f'Matrix {i} is not good')
             break
 
-
-
 inlier_X = []
 eig = np.linalg.eig
 eig_arr = [0,0,0,0]
@@ -174,5 +168,5 @@ Z = np.concatenate((Z, p3ds[2]))
 fig = plt.figure(figsize=(30,30))
 ax = plt.axes(projection='3d')
 ax.scatter3D(X, Y, Z, c='b', marker='o') 
-# plt.show()
+plt.show()
 plt.savefig('./PA2_Structure_from_Motion/results/3D_result.jpg')
