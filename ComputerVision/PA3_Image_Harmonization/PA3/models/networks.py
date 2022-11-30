@@ -295,13 +295,13 @@ class RainNet(nn.Module):
         self.layer0 = nn.Conv2d(input_nc, ngf, kernel_size=3, stride=2, padding=1, bias=False)
 
         self.layer1 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), ngf, 2*ngf, 3, 2, 1, False)
-        self.layer1 = self.layer1(norm_type_list[norm_type_indicator[0]](2*ngf))
+        self.layer1IN = norm_type_list[norm_type_indicator[0]](2*ngf)
 
         self.layer2 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), 2*ngf, 4*ngf, 3, 2, 1, False)
-        self.layer2 = self.layer2(norm_type_list[norm_type_indicator[1]](4*ngf))
+        self.layer2IN = norm_type_list[norm_type_indicator[1]](4*ngf)
 
         self.layer3 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), 4*ngf, 8*ngf, 3, 2, 1, False)
-        self.layer3 = self.layer3(norm_type_list[norm_type_indicator[2]](8*ngf))
+        self.layer3IN = norm_type_list[norm_type_indicator[2]](8*ngf)
 
         unet_block0 = UnetBlockCodec(8*ngf, 8*ngf, norm_layer=norm_layer, innermost=True,
                                         enc=norm_type_indicator[6], dec=norm_type_indicator[7])
@@ -313,27 +313,18 @@ class RainNet(nn.Module):
                                         enc=norm_type_indicator[3], dec=norm_type_indicator[10])
         
         self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 3,2,1, False)
-        self.layer4 = self.layer4(norm_type_list[norm_type_indicator[11]](4*ngf))
+        self.layer4IN = norm_type_list[norm_type_indicator[11]](4*ngf)
 
         self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 3,2,1, False)
-        self.layer5 = self.layer5(norm_type_list[norm_type_indicator[12]](2*ngf))
+        self.layer5IN = norm_type_list[norm_type_indicator[12]](2*ngf)
 
         self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 3,2,1, False)
-        self.layer6 = self.layer6(norm_type_list[norm_type_indicator[13]](ngf))
+        self.layer6IN = norm_type_list[norm_type_indicator[13]](ngf)
 
         if use_attention:
-            self.layer4 = self.layer4(
-                nn.Sequential(nn.Conv2d(8*ngf, 8*ngf, kernel_size=1)),
-                nn.Sigmoid()
-                ) 
-            self.layer5 = self.layer5(
-                nn.Sequential(nn.Conv2d(4*ngf, 4*ngf, kernel_size=1)),
-                nn.Sigmoid()
-                )
-            self.layer6 = self.layer6(
-                nn.Sequential(nn.Conv2d(2*ngf, 2*ngf, kernel_size=1)),
-                nn.Sigmoid()
-                )
+            self.layer4Att = nn.Sequential(nn.Conv2d(8*ngf, 8*ngf, kernel_size=1), nn.Sigmoid())
+            self.layer5Att = nn.Sequential(nn.Conv2d(4*ngf, 4*ngf, kernel_size=1), nn.Sigmoid())
+            self.layer6Att = nn.Sequential(nn.Conv2d(2*ngf, 2*ngf, kernel_size=1), nn.Sigmoid())
         
         self.out_layer = nn.Sequential(
             nn.ReLU(),
@@ -345,25 +336,30 @@ class RainNet(nn.Module):
         # fill the blank
         x0 = self.layer0(x)
         x1 = self.layer1(x0)
+        x1 = self.layer1IN(x1)
+
         x2 = self.layer2(x1)
+        x2 = self.layer1IN(x2)
+
         x3 = self.layer3(x2)
+        x3 = self.layer1IN(x3)
 
         dx3 = self.unet_block(x3, mask)
         
         dx2 = torch.cat([x2, self.layer4(dx3)],1)
         if self.use_attention:
-            dx2 = self.layer4(dx2) * dx2
+            dx2 = self.layer4Att(dx2) * dx2
 
         dx1 = torch.cat([x1, self.layer5(dx2)],1)
         if self.use_attention:
-            dx1 = self.layer5(dx1) * dx1
+            dx1 = self.layer5Att(dx1) * dx1
 
         dx0 = torch.cat([x0, self.layer6(dx1)],1)
         if self.use_attention:
-            dx0 = self.layer6(dx0) * dx0
+            dx0 = self.layer6Att(dx0) * dx0
 
         out = self.out_layer(dx0)
-        
+
         return out
 
     def processImage(self, x, mask, background=None):
