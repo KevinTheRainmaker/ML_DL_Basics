@@ -1,1 +1,6 @@
 PA3/preprocessed/
+PA3/checkpoints/
+PA3/data/__pycache__/
+PA3/models/__pycache__/
+PA3/options/__pycache__/
+PA3/util/__pycache__/
