@@ -322,10 +322,10 @@ class RainNet(nn.Module):
         # fill the blank
 
         self.layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=3, stride=2, padding=1, bias=False)
+            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False)
 
         self.layer1 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3, inplace=True), ngf, 2*ngf, 3, 2, 1, False)
+            negative_slope=0.3, inplace=True), ngf, 2*ngf, 4, 2, 1, False)
         # nn.Sequential(
         #     nn.LeakyReLU(negative_slope=0.3, inplace=True),
         #     nn.Conv2d(ngf, 2*ngf, kernel_size=3,
@@ -334,11 +334,11 @@ class RainNet(nn.Module):
         self.layer1IN = norm_type_list[0](2*ngf)
 
         self.layer2 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3, inplace=True), 2*ngf, 4*ngf, 3, 2, 1, False)
+            negative_slope=0.3, inplace=True), 2*ngf, 4*ngf, 4, 2, 1, False)
         self.layer2IN = norm_type_list[0](4*ngf)
 
         self.layer3 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3, inplace=True), 4*ngf, 8*ngf, 3, 2, 1, False)
+            negative_slope=0.3, inplace=True), 4*ngf, 8*ngf, 4, 2, 1, False)
         self.layer3IN = norm_type_list[0](8*ngf)
 
         unet_0 = UnetBlockCodec(8*ngf, 8*ngf, innermost=True,
@@ -350,13 +350,13 @@ class RainNet(nn.Module):
         self.unet_block = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_2,
                                          norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
 
-        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 3, 2, 1, False)
+        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 4, 2, 1, False)
         self.layer4IN = norm_type_list[0](4*ngf)
 
-        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 3, 2, 1, False)
+        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 4, 2, 1, False)
         self.layer5IN = norm_type_list[0](2*ngf)
 
-        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 3, 2, 1, False)
+        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 4, 2, 1, False)
         self.layer6IN = norm_type_list[0](ngf)
 
         if use_attention:
@@ -378,7 +378,7 @@ class RainNet(nn.Module):
         self.out_layer = nn.Sequential(
             nn.ReLU(),
             nn.ConvTranspose2d(
-                2*ngf, output_nc, kernel_size=3, stride=2, padding=1),
+                2*ngf, output_nc, kernel_size=4, stride=2, padding=1),
             nn.Tanh()
         )
 
