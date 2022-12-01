@@ -408,7 +408,7 @@ class RainNet(nn.Module):
             dx1 = self.layer5Att(dx1) * dx1
 
         dx0 = self.layer6(dx1)
-        dx0 = torch.cat([x0, self.layer6IN(dx1)], 1)
+        dx0 = torch.cat([x0, self.layer6IN(dx0)], 1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) * dx0
 
