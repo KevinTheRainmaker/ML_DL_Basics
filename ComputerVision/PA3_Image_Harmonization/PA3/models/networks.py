@@ -7,9 +7,11 @@ from torch.optim import lr_scheduler
 from models.normalize import RAIN
 from torch.nn.utils import spectral_norm
 
+
 class Identity(nn.Module):
     def forward(self, x):
         return x
+
 
 def get_norm_layer(norm_type='instance'):
     """Return a normalization layer
@@ -22,15 +24,18 @@ def get_norm_layer(norm_type='instance'):
     """
     norm_type = norm_type.lower()
     if norm_type == 'batch':
-        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+        norm_layer = functools.partial(
+            nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+        norm_layer = functools.partial(
+            nn.InstanceNorm2d, affine=False, track_running_stats=False)
     elif norm_type == 'none':
-        norm_layer = lambda x: Identity()
+        def norm_layer(x): return Identity()
     elif norm_type.startswith('rain'):
         norm_layer = RAIN
     else:
-        raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
+        raise NotImplementedError(
+            'normalization layer [%s] is not found' % norm_type)
     return norm_layer
 
 
@@ -52,10 +57,13 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False,
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'rainnet':
-        net = RainNet(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, use_attention=True)
+        net = RainNet(input_nc, output_nc, ngf, norm_layer=norm_layer,
+                      use_dropout=use_dropout, use_attention=True)
     else:
-        raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
+        raise NotImplementedError(
+            'Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
+
 
 def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Create a discriminator
@@ -73,13 +81,16 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
+        net = NLayerDiscriminator(
+            input_nc, ndf, n_layers=3, norm_layer=norm_layer)
     elif netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
+        net = NLayerDiscriminator(
+            input_nc, ndf, n_layers_D, norm_layer=norm_layer)
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
-        raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
+        raise NotImplementedError(
+            'Discriminator model name [%s] is not recognized' % netD)
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
@@ -98,18 +109,23 @@ def get_scheduler(optimizer, opt):
     """
     if opt.lr_policy == 'linear':
         def lambda_rule(epoch):
-            lr_l = 1.0 - max(0, epoch + opt.epoch_count - opt.niter) / float(opt.niter_decay + 1)
+            lr_l = 1.0 - max(0, epoch + opt.epoch_count -
+                             opt.niter) / float(opt.niter_decay + 1)
             return lr_l
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
     elif opt.lr_policy == 'step':
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=opt.lr_decay_iters, gamma=0.1)
+        scheduler = lr_scheduler.StepLR(
+            optimizer, step_size=opt.lr_decay_iters, gamma=0.1)
     elif opt.lr_policy == 'plateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
     elif opt.lr_policy == 'cosine':
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=opt.niter, eta_min=0)
+        scheduler = lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=opt.niter, eta_min=0)
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
+
 
 def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
@@ -134,15 +150,18 @@ def init_weights(net, init_type='normal', init_gain=0.02):
             elif init_type == 'orthogonal':
                 init.orthogonal_(m.weight.data, gain=init_gain)
             else:
-                raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
+                raise NotImplementedError(
+                    'initialization method [%s] is not implemented' % init_type)
             if hasattr(m, 'bias') and m.bias is not None:
                 init.constant_(m.bias.data, 0.0)
-        elif classname.find('BatchNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+        # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+        elif classname.find('BatchNorm2d') != -1:
             init.normal_(m.weight.data, 1.0, init_gain)
             init.constant_(m.bias.data, 0.0)
 
     print('initialize network with %s' % init_type)
     net.apply(init_func)  # apply the initialization function <init_func>
+
 
 def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
@@ -226,10 +245,11 @@ class GANLoss(nn.Module):
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':
             if target_is_real:
-                loss = -prediction.mean() # self.relu(1-prediction.mean())
+                loss = -prediction.mean()  # self.relu(1-prediction.mean())
             else:
-                loss = prediction.mean() # self.relu(1+prediction.mean())
+                loss = prediction.mean()  # self.relu(1+prediction.mean())
         return loss
+
 
 def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', constant=1.0, lambda_gp=10.0, mask=None):
     """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
@@ -246,7 +266,8 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
     Returns the gradient penalty loss
     """
     if lambda_gp > 0.0:
-        if type == 'real':   # either use real images, fake images, or a linear interpolation of two.
+        # either use real images, fake images, or a linear interpolation of two.
+        if type == 'real':
             interpolatesv = real_data
         elif type == 'fake':
             interpolatesv = fake_data
@@ -260,29 +281,36 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         interpolatesv.requires_grad_(True)
         disc_interpolates = netD(interpolatesv, mask, gp=True)
         gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolatesv,
-                                        grad_outputs=torch.ones(disc_interpolates.size()).to(device),
+                                        grad_outputs=torch.ones(
+                                            disc_interpolates.size()).to(device),
                                         create_graph=True, retain_graph=True, only_inputs=True,
                                         allow_unused=True)
         gradients = gradients[0].view(real_data.size(0), -1)  # flat the data
-        gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean() * lambda_gp        # added eps
+        gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) -
+                            constant) ** 2).mean() * lambda_gp        # added eps
         return gradient_penalty, gradients
     else:
         return 0.0, None
 
+
 def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, bias=bias))
+    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
+                stride=stride, padding=padding, bias=bias))
     return nn.Sequential(*conv)
+
 
 def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.append(nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel, stride=2, padding=1, bias=False))
+    conv.append(nn.ConvTranspose2d(dims_in, dims_out,
+                kernel_size=kernel, stride=2, padding=1, bias=False))
     return nn.Sequential(*conv)
 
 
 class RainNet(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=RAIN,
-                 norm_type_indicator=[0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+                 norm_type_indicator=[0, 0, 0, 0, 0, 0, 0,
+                                      1, 1, 1, 1, 1, 1, 1],
                  use_dropout=False, use_attention=True):
         super(RainNet, self).__init__()
         self.input_nc = input_nc
@@ -292,49 +320,72 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.layer0 = nn.Conv2d(input_nc, ngf, kernel_size=3, stride=2, padding=1, bias=False)
 
-        self.layer1 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), ngf, 2*ngf, 3, 2, 1, False)
-        self.layer1IN = norm_type_list[norm_type_indicator[0]](2*ngf)
+        self.layer0 = nn.Conv2d(
+            input_nc, ngf, kernel_size=3, stride=2, padding=1, bias=False)
 
-        self.layer2 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), 2*ngf, 4*ngf, 3, 2, 1, False)
-        self.layer2IN = norm_type_list[norm_type_indicator[1]](4*ngf)
+        self.layer1 = get_act_conv(nn.LeakyReLU(
+            negative_slope=0.3, inplace=True), ngf, 2*ngf, 3, 2, 1, False)
+        # nn.Sequential(
+        #     nn.LeakyReLU(negative_slope=0.3, inplace=True),
+        #     nn.Conv2d(ngf, 2*ngf, kernel_size=3,
+        #               stride=2, padding=1, bias=False)
+        # )
+        self.layer1IN = norm_type_list[0](2*ngf)
 
-        self.layer3 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True), 4*ngf, 8*ngf, 3, 2, 1, False)
-        self.layer3IN = norm_type_list[norm_type_indicator[2]](8*ngf)
+        self.layer2 = get_act_conv(nn.LeakyReLU(
+            negative_slope=0.3, inplace=True), 2*ngf, 4*ngf, 3, 2, 1, False)
+        self.layer2IN = norm_type_list[0](4*ngf)
 
-        unet_block0 = UnetBlockCodec(8*ngf, 8*ngf, norm_layer=norm_layer, innermost=True,
-                                        enc=norm_type_indicator[6], dec=norm_type_indicator[7])
-        unet_block1 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_block0, norm_layer=norm_layer, use_dropout=use_dropout,
-                                        enc=norm_type_indicator[5], dec=norm_type_indicator[8])
-        unet_block2 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_block1, norm_layer=norm_layer, use_dropout=use_dropout,
-                                        enc=norm_type_indicator[4], dec=norm_type_indicator[9])
-        self.unet_block = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_block2, norm_layer=norm_layer, use_dropout=use_dropout,
-                                        enc=norm_type_indicator[3], dec=norm_type_indicator[10])
-        
-        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 3,2,1, False)
-        self.layer4IN = norm_type_list[norm_type_indicator[11]](4*ngf)
+        self.layer3 = get_act_conv(nn.LeakyReLU(
+            negative_slope=0.3, inplace=True), 4*ngf, 8*ngf, 3, 2, 1, False)
+        self.layer3IN = norm_type_list[0](8*ngf)
 
-        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 3,2,1, False)
-        self.layer5IN = norm_type_list[norm_type_indicator[12]](2*ngf)
+        unet_0 = UnetBlockCodec(8*ngf, 8*ngf, innermost=True,
+                                norm_layer=norm_layer, enc=False, dec=False)
+        unet_1 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_0,
+                                norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
+        unet_2 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_1,
+                                norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
+        self.unet_block = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_2,
+                                         norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
 
-        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 3,2,1, False)
-        self.layer6IN = norm_type_list[norm_type_indicator[13]](ngf)
+        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 3, 2, 1, False)
+        self.layer4IN = norm_type_list[0](4*ngf)
+
+        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 3, 2, 1, False)
+        self.layer5IN = norm_type_list[0](2*ngf)
+
+        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 3, 2, 1, False)
+        self.layer6IN = norm_type_list[0](ngf)
 
         if use_attention:
-            self.layer4Att = nn.Sequential(nn.Conv2d(8*ngf, 8*ngf, kernel_size=1), nn.Sigmoid())
-            self.layer5Att = nn.Sequential(nn.Conv2d(4*ngf, 4*ngf, kernel_size=1), nn.Sigmoid())
-            self.layer6Att = nn.Sequential(nn.Conv2d(2*ngf, 2*ngf, kernel_size=1), nn.Sigmoid())
-        
+            self.layer4Att = nn.Sequential(
+                nn.Conv2d(8*ngf, 8*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
+
+            self.layer5Att = nn.Sequential(
+                nn.Conv2d(4*ngf, 4*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
+
+            self.layer6Att = nn.Sequential(
+                nn.Conv2d(2*ngf, 2*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
+
         self.out_layer = nn.Sequential(
             nn.ReLU(),
-            nn.ConvTranspose2d(2*ngf, output_nc, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(
+                2*ngf, output_nc, kernel_size=3, stride=2, padding=1),
             nn.Tanh()
         )
 
     def forward(self, x, mask):
         # fill the blank
         x0 = self.layer0(x)
+
         x1 = self.layer1(x0)
         x1 = self.layer1IN(x1)
 
@@ -345,16 +396,16 @@ class RainNet(nn.Module):
         x3 = self.layer1IN(x3)
 
         dx3 = self.unet_block(x3, mask)
-        
-        dx2 = torch.cat([x2, self.layer4(dx3)],1)
+
+        dx2 = torch.cat([x2, self.layer4(dx3)], 1)
         if self.use_attention:
             dx2 = self.layer4Att(dx2) * dx2
 
-        dx1 = torch.cat([x1, self.layer5(dx2)],1)
+        dx1 = torch.cat([x1, self.layer5(dx2)], 1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) * dx1
 
-        dx0 = torch.cat([x0, self.layer6(dx1)],1)
+        dx0 = torch.cat([x0, self.layer6(dx1)], 1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) * dx0
 
@@ -376,6 +427,7 @@ class UnetBlockCodec(nn.Module):
         X -------------------identity----------------------
         |-- downsampling -- |submodule| -- upsampling --|
     """
+
     def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None, outermost=False, innermost=False,
                  norm_layer=RAIN, use_dropout=False, use_attention=False, enc=True, dec=True):
         """Construct a Unet submodule with skip connections.
@@ -400,42 +452,54 @@ class UnetBlockCodec(nn.Module):
         use_bias = False
         if input_nc is None:
             input_nc = outer_nc
-        self.norm_namebuffer = ['RAIN', 'RAIN_Method_Learnable', 'RAIN_Method_BN']
+        self.norm_namebuffer = [
+            'RAIN', 'RAIN_Method_Learnable', 'RAIN_Method_BN']
         if outermost:
-            self.down = nn.Conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
+            self.down = nn.Conv2d(
+                input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
             self.submodule = submodule
             self.up = nn.Sequential(
                 nn.ReLU(True),
-                nn.ConvTranspose2d(inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1),
+                nn.ConvTranspose2d(inner_nc * 2, outer_nc,
+                                   kernel_size=4, stride=2, padding=1),
                 nn.Tanh()
             )
         elif innermost:
             self.up = nn.Sequential(
                 nn.LeakyReLU(0.2, True),
-                nn.Conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias),
+                nn.Conv2d(input_nc, inner_nc, kernel_size=4,
+                          stride=2, padding=1, bias=use_bias),
                 nn.ReLU(True),
-                nn.ConvTranspose2d(inner_nc, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
+                nn.ConvTranspose2d(
+                    inner_nc, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias)
             )
-            self.upnorm = norm_layer(outer_nc) if dec else get_norm_layer('instance')(outer_nc)
+            self.upnorm = norm_layer(
+                outer_nc) if dec else get_norm_layer('instance')(outer_nc)
         else:
             self.down = nn.Sequential(
                 nn.LeakyReLU(0.2, True),
-                nn.Conv2d(input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias),
+                nn.Conv2d(input_nc, inner_nc, kernel_size=4,
+                          stride=2, padding=1, bias=use_bias),
             )
-            self.downnorm = norm_layer(inner_nc) if enc else get_norm_layer('instance')(inner_nc)
+            self.downnorm = norm_layer(
+                inner_nc) if enc else get_norm_layer('instance')(inner_nc)
             self.submodule = submodule
             self.up = nn.Sequential(
                 nn.ReLU(True),
-                nn.ConvTranspose2d(inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias),
+                nn.ConvTranspose2d(
+                    inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias),
             )
-            self.upnorm = norm_layer(outer_nc) if dec else get_norm_layer('instance')(outer_nc)
+            self.upnorm = norm_layer(
+                outer_nc) if dec else get_norm_layer('instance')(outer_nc)
             if use_dropout:
                 self.dropout = nn.Dropout(0.5)
 
         if use_attention:
-            attention_conv = nn.Conv2d(outer_nc+input_nc, outer_nc+input_nc, kernel_size=1)
+            attention_conv = nn.Conv2d(
+                outer_nc+input_nc, outer_nc+input_nc, kernel_size=1)
             attention_sigmoid = nn.Sigmoid()
-            self.attention = nn.Sequential(*[attention_conv, attention_sigmoid])
+            self.attention = nn.Sequential(
+                *[attention_conv, attention_sigmoid])
 
     def forward(self, x, mask):
         if self.outermost:
@@ -485,7 +549,8 @@ class PixelDiscriminator(nn.Module):
             norm_layer      -- normalization layer
         """
         super(PixelDiscriminator, self).__init__()
-        if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
+        # no need to use bias as BatchNorm2d has affine parameters
+        if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
@@ -493,7 +558,8 @@ class PixelDiscriminator(nn.Module):
         self.net = [
             nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(ndf, ndf * 2, kernel_size=1, stride=1, padding=0, bias=use_bias),
+            nn.Conv2d(ndf, ndf * 2, kernel_size=1,
+                      stride=1, padding=0, bias=use_bias),
             norm_layer(ndf * 2),
             nn.LeakyReLU(0.2, True),
             nn.Conv2d(ndf * 2, 1, kernel_size=1, stride=1, padding=0, bias=use_bias)]
@@ -523,10 +589,11 @@ class PartialConv2d(nn.Conv2d):
             self.weight_maskUpdater = torch.ones(self.out_channels, self.in_channels, self.kernel_size[0],
                                                  self.kernel_size[1])
         else:
-            self.weight_maskUpdater = torch.ones(1, 1, self.kernel_size[0], self.kernel_size[1])
+            self.weight_maskUpdater = torch.ones(
+                1, 1, self.kernel_size[0], self.kernel_size[1])
 
         self.slide_winsize = self.weight_maskUpdater.shape[1] * self.weight_maskUpdater.shape[2] * \
-                             self.weight_maskUpdater.shape[3]
+            self.weight_maskUpdater.shape[3]
 
         self.last_size = (None, None, None, None)
         self.update_mask = None
@@ -547,23 +614,26 @@ class PartialConv2d(nn.Conv2d):
                         mask = torch.ones(input.data.shape[0], input.data.shape[1], input.data.shape[2],
                                           input.data.shape[3]).to(input)
                     else:
-                        mask = torch.ones(1, 1, input.data.shape[2], input.data.shape[3]).to(input)
+                        mask = torch.ones(
+                            1, 1, input.data.shape[2], input.data.shape[3]).to(input)
                 else:
                     mask = mask_in
 
                 self.update_mask = F.conv2d(mask, self.weight_maskUpdater, bias=None, stride=self.stride,
                                             padding=self.padding, dilation=self.dilation, groups=1)
 
-                self.mask_ratio = self.slide_winsize / (self.update_mask + 1e-8)
+                self.mask_ratio = self.slide_winsize / \
+                    (self.update_mask + 1e-8)
                 self.update_mask = torch.clamp(self.update_mask, 0, 1)
                 self.mask_ratio = torch.mul(self.mask_ratio, self.update_mask)
 
-
-        raw_out = super(PartialConv2d, self).forward(torch.mul(input, mask) if mask_in is not None else input)
+        raw_out = super(PartialConv2d, self).forward(
+            torch.mul(input, mask) if mask_in is not None else input)
 
         if self.bias is not None:
             bias_view = self.bias.view(1, self.out_channels, 1, 1)
-            output = torch.mul(raw_out - bias_view, self.mask_ratio) + bias_view
+            output = torch.mul(raw_out - bias_view,
+                               self.mask_ratio) + bias_view
             output = torch.mul(output, self.update_mask)
         else:
             output = torch.mul(raw_out, self.mask_ratio)
@@ -585,16 +655,19 @@ class OrgDiscriminator(nn.Module):
             norm_layer      -- normalization layer
         """
         super(OrgDiscriminator, self).__init__()
-        if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
+        # no need to use bias as BatchNorm2d has affine parameters
+        if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
         kw = 3
         padw = 0
-        self.conv1 = spectral_norm(PartialConv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw))
+        self.conv1 = spectral_norm(PartialConv2d(
+            input_nc, ndf, kernel_size=kw, stride=2, padding=padw))
         if global_stages < 1:
-            self.conv1f = spectral_norm(PartialConv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw))
+            self.conv1f = spectral_norm(PartialConv2d(
+                input_nc, ndf, kernel_size=kw, stride=2, padding=padw))
         else:
             self.conv1f = self.conv1
         self.relu1 = nn.LeakyReLU(0.2, True)
@@ -752,9 +825,11 @@ class NLayerDiscriminator(nn.Module):
         super(NLayerDiscriminator, self).__init__()
         num_outputs = ndf * min(2 ** n_layers, 8)
         self.D = OrgDiscriminator(input_nc, ndf, n_layers, norm_layer)
-        self.convl1 = spectral_norm(nn.Conv2d(num_outputs, num_outputs, kernel_size=1, stride=1))
+        self.convl1 = spectral_norm(
+            nn.Conv2d(num_outputs, num_outputs, kernel_size=1, stride=1))
         self.relul1 = nn.LeakyReLU(0.2)
-        self.convl2 = spectral_norm(nn.Conv2d(num_outputs, num_outputs, kernel_size=1, stride=1))
+        self.convl2 = spectral_norm(
+            nn.Conv2d(num_outputs, num_outputs, kernel_size=1, stride=1))
         self.relul2 = nn.LeakyReLU(0.2)
         self.convl3 = nn.Conv2d(num_outputs, 1, kernel_size=1, stride=1)
         self.convg3 = nn.Conv2d(num_outputs, 1, kernel_size=1, stride=1)
@@ -777,4 +852,3 @@ class NLayerDiscriminator(nn.Module):
                 return x, sim_sum, feat_g, feat_l
             return x, sim_sum
         return (x + sim_sum) * 0.5
-
