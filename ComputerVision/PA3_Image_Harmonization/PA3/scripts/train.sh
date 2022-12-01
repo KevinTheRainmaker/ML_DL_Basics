@@ -2,7 +2,7 @@
 #--dataset_root /jisu/dataset/iHarmony4resized256/ \
 
 python train.py \
---dataset_root <Write your own path> \
+--dataset_root /usr/working_env/preprocessed \
 --name experiment_train_2080 \
 --checkpoints_dir ./checkpoints/scratch/ \
 --model rainnet \
@@ -20,7 +20,7 @@ python train.py \
 --num_threads 6 \
 --lambda_L1 100 \
 --print_freq 400 \
---gpu_ids 0 \
+--gpu_ids 8 \
 #--continue_train \
 #--load_iter 87 \
 #--epoch 88 \
