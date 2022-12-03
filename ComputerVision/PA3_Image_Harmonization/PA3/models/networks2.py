@@ -327,20 +327,20 @@ class RainNet(nn.Module):
         self.layer1 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
                                    ngf, 2*ngf,
                                    # Reflect Padding for better Segmentation Performance
-                                   kernel_size=4, stride=2, padding=1, type='reflect', bias=False
+                                   kernel=4, stride=2, padding=1, type='reflect', bias=False
                                    )
         self.layer1IN = norm_type_list[0](2*ngf)
         # TODO: Dilation 계산하기
         self.layer2 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
                                    2*ngf, 4*ngf,
                                    # 4-Dilated Convolution for better Segmentation Performance
-                                   kernel_size=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
+                                   kernel=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
                                    )
         self.layer2IN = norm_type_list[0](4*ngf)
 
         self.layer3 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
                                    4*ngf, 8*ngf,
-                                   kernel_size=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
+                                   kernel=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
                                    )
         self.layer3IN = norm_type_list[0](8*ngf)
 
