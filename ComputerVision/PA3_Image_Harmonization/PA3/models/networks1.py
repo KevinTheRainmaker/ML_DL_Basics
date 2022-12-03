@@ -833,6 +833,3 @@ class NLayerDiscriminator(nn.Module):
                 return x, sim_sum, feat_g, feat_l
             return x, sim_sum
         return (x + sim_sum) * 0.5
-
-
-Footer
