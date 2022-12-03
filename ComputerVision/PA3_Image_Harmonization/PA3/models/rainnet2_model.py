@@ -6,7 +6,7 @@ from torch import nn, cuda
 from torch.autograd import Variable
 
 
-class RainNetModel(BaseModel):
+class RainNet2Model(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
