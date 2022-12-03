@@ -5,8 +5,8 @@ python train.py \
 --dataset_root /usr/working_env/preprocessed \
 --name experiment_train_2090 \
 --checkpoints_dir ./checkpoints/scratch/ \
---model rainnet \
---netG rainnet \
+--model rainnet2 \
+--netG rainnet2 \
 --dataset_mode iharmony4 \
 --is_train 1 \
 --gan_mode wgangp \
