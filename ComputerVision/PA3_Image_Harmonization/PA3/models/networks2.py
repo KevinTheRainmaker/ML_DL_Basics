@@ -334,13 +334,13 @@ class RainNet(nn.Module):
         self.layer2 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
                                    2*ngf, 4*ngf,
                                    # 4-Dilated Convolution for better Segmentation Performance
-                                   kernel=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
+                                   kernel=4, stride=2, padding=1, type='reflect', bias=False, dilation=4
                                    )
         self.layer2IN = norm_type_list[0](4*ngf)
 
         self.layer3 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
                                    4*ngf, 8*ngf,
-                                   kernel=4, stride=1, padding=1, type='reflect', bias=False, dilation=4
+                                   kernel=4, stride=2, padding=1, type='reflect', bias=False, dilation=4
                                    )
         self.layer3IN = norm_type_list[0](8*ngf)
 
@@ -398,22 +398,22 @@ class RainNet(nn.Module):
         x3 = self.layer3(x2)
         x3 = self.layer1IN(x3)
 
-        dx3 = self.unet_block(x3, mask)
+        ux = self.unet_block(x3, mask)
 
-        dx2 = self.layer4(dx3)
+        dx2 = self.layer4(ux)
         dx2 = torch.cat([x2, self.layer4IN(dx2)], 1)
         if self.use_attention:
-            dx2 = self.layer4Att(dx2) * dx2
+            dx2 = self.layer4Att(dx2) @ dx2
 
         dx1 = self.layer5(dx2)
         dx1 = torch.cat([x1, self.layer5IN(dx1)], 1)
         if self.use_attention:
-            dx1 = self.layer5Att(dx1) * dx1
+            dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
         dx0 = torch.cat([x0, self.layer6IN(dx0)], 1)
         if self.use_attention:
-            dx0 = self.layer6Att(dx0) * dx0
+            dx0 = self.layer6Att(dx0) @ dx0
 
         out = self.out_layer(dx0)
 

@@ -6,7 +6,7 @@ python train.py \
 --name experiment_train_2090 \
 --checkpoints_dir ./checkpoints/scratch/ \
 --model rainnet2 \
---netG rainnet2 \
+--netG rainnet \
 --dataset_mode iharmony4 \
 --is_train 1 \
 --gan_mode wgangp \
