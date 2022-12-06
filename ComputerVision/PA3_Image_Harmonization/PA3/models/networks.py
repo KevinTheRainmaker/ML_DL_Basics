@@ -15,10 +15,8 @@ class Identity(nn.Module):
 
 def get_norm_layer(norm_type='instance'):
     """Return a normalization layer
-
     Parameters:
         norm_type (str) -- the name of the normalization layer: batch | instance | none
-
     For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
     For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
     """
@@ -42,7 +40,6 @@ def get_norm_layer(norm_type='instance'):
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False,
              init_type='normal', init_gain=0.02, gpu_ids=[]):
     """load a generator
-
     Parameters:
         input_nc (int) -- the number of channels in input images
         output_nc (int) -- the number of channels in output images
@@ -67,7 +64,6 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False,
 
 def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Create a discriminator
-
     Parameters:
         input_nc (int)     -- the number of channels in input images
         ndf (int)          -- the number of filters in the first conv layer
@@ -96,12 +92,10 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
 
 def get_scheduler(optimizer, opt):
     """Return a learning rate scheduler
-
     Parameters:
         optimizer          -- the optimizer of the network
         opt (option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions．　
                               opt.lr_policy is the name of learning rate policy: linear | step | plateau | cosine
-
     For 'linear', we keep the same learning rate for the first <opt.niter> epochs
     and linearly decay the rate to zero over the next <opt.niter_decay> epochs.
     For other schedulers (step, plateau, and cosine), we use the default PyTorch schedulers.
@@ -129,12 +123,10 @@ def get_scheduler(optimizer, opt):
 
 def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
-
     Parameters:
         net (network)   -- network to be initialized
         init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
         init_gain (float)    -- scaling factor for normal, xavier and orthogonal.
-
     We use 'normal' in the original pix2pix and CycleGAN paper. But xavier and kaiming might
     work better for some applications. Feel free to try yourself.
     """
@@ -170,7 +162,6 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
         init_type (str)    -- the name of an initialization method: normal | xavier | kaiming | orthogonal
         gain (float)       -- scaling factor for normal, xavier and orthogonal.
         gpu_ids (int list) -- which GPUs the network runs on: e.g., 0,1,2
-
     Return an initialized network.
     """
     if len(gpu_ids) > 0:
@@ -183,19 +174,16 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 class GANLoss(nn.Module):
     """Define different GAN objectives.
-
     The GANLoss class abstracts away the need to create the target label tensor
     that has the same size as the input.
     """
 
     def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
         """ Initialize the GANLoss class.
-
         Parameters:
             gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
             target_real_label (bool) - - label for a real image
             target_fake_label (bool) - - label of a fake image
-
         Note: Do not use sigmoid as the last layer of Discriminator.
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
         """
@@ -215,11 +203,9 @@ class GANLoss(nn.Module):
 
     def get_target_tensor(self, prediction, target_is_real):
         """Create label tensors with the same size as the input.
-
         Parameters:
             prediction (tensor) - - tpyically the prediction from a discriminator
             target_is_real (bool) - - if the ground truth label is for real images or fake images
-
         Returns:
             A label tensor filled with ground truth label, and with the size of the input
         """
@@ -232,11 +218,9 @@ class GANLoss(nn.Module):
 
     def __call__(self, prediction, target_is_real):
         """Calculate loss given Discriminator's output and grount truth labels.
-
         Parameters:
             prediction (tensor) - - tpyically the prediction output from a discriminator
             target_is_real (bool) - - if the ground truth label is for real images or fake images
-
         Returns:
             the calculated loss.
         """
@@ -253,7 +237,6 @@ class GANLoss(nn.Module):
 
 def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', constant=1.0, lambda_gp=10.0, mask=None):
     """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
-
     Arguments:
         netD (network)              -- discriminator network
         real_data (tensor array)    -- real images
@@ -262,7 +245,6 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         type (str)                  -- if we mix real and fake data or not [real | fake | mixed].
         constant (float)            -- the constant used in formula ( | |gradient||_2 - constant)^2
         lambda_gp (float)           -- weight for this loss
-
     Returns the gradient penalty loss
     """
     if lambda_gp > 0.0:
@@ -293,17 +275,17 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         return 0.0, None
 
 
-def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, type, bias, dilation=1):
+def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel, dilation=dilation,
-                stride=stride, padding=padding, padding_mode=type, bias=bias))
+    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
+                stride=stride, padding=padding, padding_mode='reflect', bias=bias))  # for better segmentation performance
     return nn.Sequential(*conv)
 
 
 def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
     conv.append(nn.ConvTranspose2d(dims_in, dims_out,
-                kernel_size=kernel, stride=stride, padding=padding, bias=bias))
+                kernel_size=kernel, stride=2, padding=1, bias=False))
     return nn.Sequential(*conv)
 
 
@@ -320,47 +302,67 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
+        self.norm = norm_type_list[0]
 
         self.layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False)
+            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False
+        )
 
-        self.layer1 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
-                                   ngf, 2*ngf,
-                                   # Reflect Padding for better Segmentation Performance
-                                   kernel=4, stride=2, padding=1, type='reflect', bias=False
-                                   )
-        self.layer1IN = norm_type_list[0](2*ngf)
-        # TODO: Dilation 계산하기
-        self.layer2 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
-                                   2*ngf, 4*ngf,
-                                   # 4-Dilated Convolution for better Segmentation Performance
-                                   kernel=4, stride=2, padding=1, type='reflect', bias=False, dilation=4
-                                   )
-        self.layer2IN = norm_type_list[0](4*ngf)
+        self.layer1 = nn.Sequential(
+            get_act_conv(
+                nn.LeakyReLU(negative_slope=0.3),
+                ngf, 2*ngf, 4, 2, 1, False
+            ),
+            self.norm(2*ngf)
+        )
 
-        self.layer3 = get_act_conv(nn.LeakyReLU(negative_slope=0.3, inplace=True),
-                                   4*ngf, 8*ngf,
-                                   kernel=4, stride=2, padding=1, type='reflect', bias=False, dilation=4
-                                   )
-        self.layer3IN = norm_type_list[0](8*ngf)
+        self.layer2 = nn.Sequential(
+            get_act_conv(
+                nn.LeakyReLU(negative_slope=0.3),
+                2*ngf, 4*ngf, 4, 2, 1, False
+            ),
+            self.norm(4*ngf)
+        )
 
+        self.layer3 = nn.Sequential(
+            get_act_conv(
+                nn.LeakyReLU(negative_slope=0.3),
+                4*ngf, 8*ngf, 4, 2, 1, False
+            ),
+            self.norm(8*ngf)  # 512 512
+        )
+
+        ####TODO####
         unet_0 = UnetBlockCodec(8*ngf, 8*ngf, innermost=True,
                                 norm_layer=norm_layer, enc=False, dec=False)
         unet_1 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_0,
                                 norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
         unet_2 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_1,
                                 norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
-        self.unet_block = UnetBlockCodec(
-            8*ngf, 8*ngf, submodule=unet_2, norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
+        self.unet_block = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_2,
+                                         norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
+        ############
 
-        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 4, 2, 1, False)
-        self.layer4IN = norm_type_list[0](4*ngf)
+        self.layer4 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                16*ngf, 4*ngf, 4, 2, 1, False
+            ),
+            self.norm(4*ngf))
 
-        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 4, 2, 1, False)
-        self.layer5IN = norm_type_list[0](2*ngf)
+        self.layer5 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                8*ngf, 2*ngf, 4, 2, 1, False
+            ),
+            self.norm(2*ngf))
 
-        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 4, 2, 1, False)
-        self.layer6IN = norm_type_list[0](ngf)
+        self.layer6 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                4*ngf, ngf, 4, 2, 1, False
+            ),
+            self.norm(ngf))
 
         if use_attention:
             self.layer4Att = nn.Sequential(
@@ -380,8 +382,7 @@ class RainNet(nn.Module):
 
         self.out_layer = nn.Sequential(
             nn.ReLU(),
-            nn.ConvTranspose2d(
-                2*ngf, output_nc, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(2*ngf, output_nc, 4, 2, 1),
             nn.Tanh()
         )
 
@@ -437,7 +438,6 @@ class UnetBlockCodec(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None, outermost=False, innermost=False,
                  norm_layer=RAIN, use_dropout=False, use_attention=False, enc=True, dec=True):
         """Construct a Unet submodule with skip connections.
-
         Parameters:
             outer_nc (int) -- the number of filters in the outer conv layer
             inner_nc (int) -- the number of filters in the inner conv layer
@@ -548,7 +548,6 @@ class PixelDiscriminator(nn.Module):
 
     def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d):
         """Construct a 1x1 PatchGAN discriminator
-
         Parameters:
             input_nc (int)  -- the number of channels in input images
             ndf (int)       -- the number of filters in the last conv layer
@@ -653,7 +652,6 @@ class PartialConv2d(nn.Conv2d):
 class OrgDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=6, norm_layer=nn.BatchNorm2d, global_stages=0):
         """Construct a PatchGAN discriminator
-
         Parameters:
             input_nc (int)  -- the number of channels in input images
             ndf (int)       -- the number of filters in the last conv layer
@@ -821,7 +819,6 @@ class OrgDiscriminator(nn.Module):
 class NLayerDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=6, norm_layer=nn.BatchNorm2d):
         """Construct a PatchGAN discriminator
-
         Parameters:
             input_nc (int)  -- the number of channels in input images
             ndf (int)       -- the number of filters in the last conv layer

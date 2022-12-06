@@ -1,6 +1,6 @@
 import torch
 from .base_model import BaseModel
-from . import networks1
+from . import networks
 import torch.nn.functional as F
 from torch import nn, cuda
 from torch.autograd import Variable
@@ -21,19 +21,19 @@ class RainNetModel(BaseModel):
         else:
             self.model_names = ['G']
         # define networks (both generator and discriminator)
-        self.netG = networks1.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.normG,
-                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.normG,
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         self.relu = nn.ReLU()
 
         if self.isTrain:
             self.gan_mode = opt.gan_mode
-            netD = networks1.NLayerDiscriminator(
-                opt.output_nc, opt.ndf, opt.n_layers_D, networks1.get_norm_layer(opt.normD))
-            self.netD = networks1.init_net(
+            netD = networks.NLayerDiscriminator(
+                opt.output_nc, opt.ndf, opt.n_layers_D, networks.get_norm_layer(opt.normD))
+            self.netD = networks.init_net(
                 netD, opt.init_type, opt.init_gain, self.gpu_ids)
         if self.isTrain:
             # define loss functions
-            self.criterionGAN = networks1.GANLoss(opt.gan_mode).to(self.device)
+            self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(
@@ -94,8 +94,8 @@ class RainNetModel(BaseModel):
         self.loss_D_global = global_fake + global_real
         self.loss_D_local = local_fake + local_real
 
-        gradient_penalty, gradients = networks1.cal_gradient_penalty(self.netD, real_AB.detach(), fake_AB.detach(),
-                                                                     'cuda', mask=self.mask)
+        gradient_penalty, gradients = networks.cal_gradient_penalty(self.netD, real_AB.detach(), fake_AB.detach(),
+                                                                    'cuda', mask=self.mask)
         self.loss_D_gp = gradient_penalty
 
         # combine loss and calculate gradients
