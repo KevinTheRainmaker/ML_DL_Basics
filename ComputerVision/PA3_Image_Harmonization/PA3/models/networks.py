@@ -504,7 +504,7 @@ class UnetBlockCodec(nn.Module):
             self.upnorm = norm_layer(
                 outer_nc) if dec else get_norm_layer('instance')(outer_nc)
             if use_dropout:
-                self.dropout = nn.Dropout(self.rate)
+                self.dropout = nn.Dropout(0.5)
 
         if use_attention:
             attention_conv = nn.Conv2d(
