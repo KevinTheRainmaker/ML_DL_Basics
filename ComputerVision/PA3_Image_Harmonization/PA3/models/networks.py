@@ -275,10 +275,14 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         return 0.0, None
 
 
-def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
+def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate):
     conv = [act]
-    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
-                stride=stride, padding=padding, padding_mode='reflect', bias=bias))  # for better segmentation performance
+    conv.append(
+        nn.Conv2d(
+            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, padding_mode='reflect', bias=bias
+        ),
+        nn.Dropout(dropout_rate)
+    )  # for better segmentation performance
     return nn.Sequential(*conv)
 
 
@@ -302,67 +306,69 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.norm = norm_type_list[0]
+        self.norm1 = norm_type_list[0]
+        self.norm2 = norm_type_list[0]
 
         self.layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False
+            input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
         )
 
         self.layer1 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                ngf, 2*ngf, 4, 2, 1, False
+                ngf, 2*ngf, 8, 2, 3, False, 0.25
             ),
-            self.norm(2*ngf)
+            self.norm1(2*ngf)
         )
 
         self.layer2 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                2*ngf, 4*ngf, 4, 2, 1, False
+                2*ngf, 4*ngf, 8, 2, 3, False, 0.5
             ),
-            self.norm(4*ngf)
+            self.norm1(4*ngf)
         )
 
         self.layer3 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                4*ngf, 8*ngf, 4, 2, 1, False
+                4*ngf, 8*ngf, 8, 2, 3, False, 0.5
             ),
-            self.norm(8*ngf)  # 512 512
+            self.norm1(8*ngf)  # 512 512
         )
 
-        ####TODO####
-        unet_0 = UnetBlockCodec(8*ngf, 8*ngf, innermost=True,
-                                norm_layer=norm_layer, enc=False, dec=False)
-        unet_1 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_0,
-                                norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
-        unet_2 = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_1,
-                                norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
-        self.unet_block = UnetBlockCodec(8*ngf, 8*ngf, submodule=unet_2,
-                                         norm_layer=norm_layer, use_dropout=use_dropout, enc=False, dec=False)
-        ############
+        for i in range(4):
+            if i == 0:
+                self. unet_block = UnetBlockCodec(
+                    8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
+                    norm_layer=norm_layer, enc=self.norm1, dec=self.norm2
+                )
+            else:
+                self.unet_block = UnetBlockCodec(
+                    8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
+                    norm_layer=norm_layer, enc=self.norm1, dec=self.norm2
+                )
 
         self.layer4 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
-                16*ngf, 4*ngf, 4, 2, 1, False
+                16*ngf, 4*ngf, 8, 2, 3, False
             ),
-            self.norm(4*ngf))
+            self.norm2(4*ngf))
 
         self.layer5 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
-                8*ngf, 2*ngf, 4, 2, 1, False
+                8*ngf, 2*ngf, 8, 2, 3, False
             ),
-            self.norm(2*ngf))
+            self.norm2(2*ngf))
 
         self.layer6 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
-                4*ngf, ngf, 4, 2, 1, False
+                4*ngf, ngf, 8, 2, 3, False
             ),
-            self.norm(ngf))
+            self.norm2(ngf))
 
         if use_attention:
             self.layer4Att = nn.Sequential(
@@ -381,8 +387,7 @@ class RainNet(nn.Module):
             )
 
         self.out_layer = nn.Sequential(
-            nn.ReLU(),
-            nn.ConvTranspose2d(2*ngf, output_nc, 4, 2, 1),
+            nn.ConvTranspose2d(2*ngf, output_nc, 8, 2, 3),
             nn.Tanh()
         )
 
@@ -399,17 +404,17 @@ class RainNet(nn.Module):
         ux = self.unet_block(x3, mask)
 
         dx2 = self.layer4(ux)
-        dx2 = torch.cat([x2, dx2], 1)
+        dx2 = torch.cat([dx2, x2], dim=1)
         if self.use_attention:
-            dx2 = self.layer4Att(dx2) @ dx2
+            dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
 
         dx1 = self.layer5(dx2)
-        dx1 = torch.cat([x1, dx1], 1)
+        dx1 = torch.cat([dx1, x1], dim=1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
-        dx0 = torch.cat([x0, dx0], 1)
+        dx0 = torch.cat([dx0, x0], dim=1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) @ dx0
 
@@ -495,7 +500,7 @@ class UnetBlockCodec(nn.Module):
             self.upnorm = norm_layer(
                 outer_nc) if dec else get_norm_layer('instance')(outer_nc)
             if use_dropout:
-                self.dropout = nn.Dropout(0.5)
+                self.dropout = nn.Dropout(self.rate)
 
         if use_attention:
             attention_conv = nn.Conv2d(
