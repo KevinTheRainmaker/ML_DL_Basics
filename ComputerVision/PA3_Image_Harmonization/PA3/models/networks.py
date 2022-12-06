@@ -391,28 +391,25 @@ class RainNet(nn.Module):
         x0 = self.layer0(x)
 
         x1 = self.layer1(x0)
-        x1 = self.layer1IN(x1)
 
         x2 = self.layer2(x1)
-        x2 = self.layer1IN(x2)
 
         x3 = self.layer3(x2)
-        x3 = self.layer1IN(x3)
 
         ux = self.unet_block(x3, mask)
 
         dx2 = self.layer4(ux)
-        dx2 = torch.cat([x2, self.layer4IN(dx2)], 1)
+        dx2 = torch.cat([x2, dx2], 1)
         if self.use_attention:
             dx2 = self.layer4Att(dx2) @ dx2
 
         dx1 = self.layer5(dx2)
-        dx1 = torch.cat([x1, self.layer5IN(dx1)], 1)
+        dx1 = torch.cat([x1, dx1], 1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
-        dx0 = torch.cat([x0, self.layer6IN(dx0)], 1)
+        dx0 = torch.cat([x0, dx0], 1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) @ dx0
 
