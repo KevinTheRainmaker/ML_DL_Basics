@@ -1,6 +1,6 @@
 import torch
 from .base_model import BaseModel
-from . import networks1
+from . import networks
 import torch.nn.functional as F
 from torch import nn, cuda
 from torch.autograd import Variable
