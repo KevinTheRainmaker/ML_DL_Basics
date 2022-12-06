@@ -16,7 +16,7 @@ python train.py \
 --niter 100 \
 --niter_decay 100 \
 --input_nc 3 \
---batch_size 11 \
+--batch_size 12 \
 --num_threads 6 \
 --lambda_L1 100 \
 --print_freq 400 \
