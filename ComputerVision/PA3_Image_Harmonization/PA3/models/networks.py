@@ -277,19 +277,23 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
 
 def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate):
     conv = [act]
-    conv.append(
+    conv.extend([
         nn.Conv2d(
+            # for better segmentation performance: use reflect padding instead of zero padding
             dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, padding_mode='reflect', bias=bias
         ),
-        nn.Dropout(dropout_rate)
-    )  # for better segmentation performance
+        nn.Dropout(dropout_rate)  # add dropout
+    ])
     return nn.Sequential(*conv)
 
 
-def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
+def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate=0.5):
     conv = [act]
-    conv.append(nn.ConvTranspose2d(dims_in, dims_out,
-                kernel_size=kernel, stride=2, padding=1, bias=False))
+    conv.extend([
+        nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel,
+                           stride=stride, padding=padding, bias=bias),
+        nn.Dropout(dropout_rate)
+    ])
     return nn.Sequential(*conv)
 
 
