@@ -1,5 +1,7 @@
 PA3/preprocessed/
+PA3/preprocessed-256/
 PA3/checkpoints/
+PA3/dataset/
 PA3/evaluated/
 PA3/data/__pycache__/
 PA3/models/__pycache__/
