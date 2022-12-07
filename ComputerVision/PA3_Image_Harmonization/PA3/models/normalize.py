@@ -47,13 +47,6 @@ class RAIN(nn.Module):
         return normalized_foreground + normalized_background
 
     def get_foreground_mean_std(self, region, mask):
-        # sum = torch.sum(region, dim=[2, 3])     # (B, C)
-        # num = torch.sum(mask, dim=[2, 3])       # (B, C)
-        # mu = sum / (num + self.eps)
-        # mean = mu[:, :, None, None]
-        # var = torch.sum((region + (1 - mask)*mean - mean)
-        #                 ** 2, dim=[2, 3]) / (num + self.eps)
-        # var = var[:, :, None, None]
         # fill the blank
         num = torch.sum(mask, dim=[2, 3])
         sigma = torch.sum(region, dim=[2, 3])
