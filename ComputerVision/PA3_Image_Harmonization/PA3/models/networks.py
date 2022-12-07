@@ -280,10 +280,7 @@ def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_
     conv.extend([
         nn.Conv2d(
             # for better segmentation performance: use reflect padding instead of zero padding / dilated convolution
-            dims_in, dims_out, kernel_size=kernel, stride=stride, dilation=dilation_rate, padding='same', padding_mode=mode, bias=bias
-        ),
-        nn.Conv2d(
-            dims_in, dims_out, kernel_size=kernel, stride=stride, dilation=dilation_rate, padding='same', padding_mode=mode, bias=bias
+            dims_in, dims_out, kernel_size=kernel, dilation=dilation_rate, padding='same', padding_mode=mode, bias=bias
         ),
         nn.MaxPool2d(2, 2),
         nn.Dropout(dropout_rate)  # add dropout after maxpool
