@@ -311,7 +311,7 @@ class RainNet(nn.Module):
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
         self.norm1 = norm_type_list[0]
-        self.norm2 = norm_type_list[0]
+        self.norm2 = norm_type_list[1]
 
         self.layer0 = nn.Conv2d(
             input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
@@ -346,12 +346,12 @@ class RainNet(nn.Module):
                 self. unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
                     # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
+                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[7]
                 )
             else:
                 self.unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
+                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[7]
                 )
 
         self.layer4 = nn.Sequential(

@@ -3,7 +3,7 @@
 
 python train.py \
 --dataset_root /usr/working_env/preprocessed \
---name experiment_train_2080 \
+--name experiment_train_step2 \
 --checkpoints_dir ./checkpoints/scratch/ \
 --model rainnet \
 --netG rainnet \
@@ -20,7 +20,7 @@ python train.py \
 --num_threads 6 \
 --lambda_L1 100 \
 --print_freq 400 \
---gpu_ids 8 \
+--gpu_ids 9 \
 #--continue_train \
 #--load_iter 87 \
 #--epoch 88 \
