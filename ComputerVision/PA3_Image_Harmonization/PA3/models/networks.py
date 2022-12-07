@@ -341,18 +341,27 @@ class RainNet(nn.Module):
             self.norm1(8*ngf)  # 512 512
         )
 
-        for i in range(4):
-            if i == 0:
-                self.unet_block = UnetBlockCodec(
-                    8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
-                    # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=0, dec=1
-                )
-            else:
-                self.unet_block = UnetBlockCodec(
-                    8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=0, dec=1
-                )
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
+                                    innermost=True, enc=norm_type_indicator[6], dec=norm_type_indicator[7])  # add the innermost layer
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                    use_dropout=use_dropout, enc=norm_type_indicator[5], dec=norm_type_indicator[8])
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                    use_dropout=use_dropout, enc=norm_type_indicator[4], dec=norm_type_indicator[9])
+        self.unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                         use_dropout=use_dropout, enc=norm_type_indicator[3], dec=norm_type_indicator[10])
+
+        # for i in range(4):
+        #     if i == 0:
+        #         self.unet_block = UnetBlockCodec(
+        #             8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
+        #             # 0: IN / 1: RAIN
+        #             norm_layer=norm_layer, enc=0, dec=1
+        #         )
+        #     else:
+        #         self.unet_block = UnetBlockCodec(
+        #             8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
+        #             norm_layer=norm_layer, enc=0, dec=1
+        #         )
 
         self.layer4 = nn.Sequential(
             get_act_dconv(
