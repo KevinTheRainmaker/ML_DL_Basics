@@ -346,12 +346,12 @@ class RainNet(nn.Module):
                 self.unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
                     # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[7]
+                    norm_layer=norm_layer, enc=0, dec=1
                 )
             else:
                 self.unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[7]
+                    norm_layer=norm_layer, enc=0, dec=1
                 )
 
         self.layer4 = nn.Sequential(
