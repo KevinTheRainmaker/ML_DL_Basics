@@ -275,12 +275,12 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         return 0.0, None
 
 
-def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate):
+def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate, dilation_rate):
     conv = [act]
     conv.extend([
         nn.Conv2d(
-            # for better segmentation performance: use reflect padding instead of zero padding
-            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, padding_mode='reflect', bias=bias
+            # for better segmentation performance: use reflect padding instead of zero padding / dilated convolution
+            dims_in, dims_out, kernel_size=kernel, stride=stride, dilation=dilation_rate, padding=padding, padding_mode='reflect', bias=bias
         ),
         nn.Dropout(dropout_rate)  # add dropout
     ])
@@ -323,7 +323,7 @@ class RainNet(nn.Module):
         self.layer1 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                ngf, 2*ngf, 8, 2, 3, False, 0.25
+                ngf, 2*ngf, 8, 2, 7, False, 0.25, 2
             ),
             self.norm1(2*ngf)
         )
@@ -331,7 +331,7 @@ class RainNet(nn.Module):
         self.layer2 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                2*ngf, 4*ngf, 8, 2, 3, False, 0.5
+                2*ngf, 4*ngf, 8, 2, 7, False, 0.5, 2
             ),
             self.norm1(4*ngf)
         )
@@ -339,7 +339,7 @@ class RainNet(nn.Module):
         self.layer3 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                4*ngf, 8*ngf, 8, 2, 3, False, 0.5
+                4*ngf, 8*ngf, 8, 2, 10, False, 0.5, 4
             ),
             self.norm1(8*ngf)  # 512 512
         )
