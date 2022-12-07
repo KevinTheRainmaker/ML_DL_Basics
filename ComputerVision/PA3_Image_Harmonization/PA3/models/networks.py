@@ -292,7 +292,7 @@ def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout
     conv.extend([
         nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel,
                            stride=stride, padding=padding, bias=bias),
-        nn.Dropout(dropout_rate)
+        nn.Dropout(dropout_rate)  # add dropout
     ])
     return nn.Sequential(*conv)
 
@@ -310,10 +310,13 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.norm1 = norm_type_list[0]
-        self.norm2 = norm_type_list[1]
+        IN_norm = 0
+        RAIN_norm = 1
+        self.norm1 = norm_type_list[IN_norm]
+        self.norm2 = norm_type_list[RAIN_norm]
 
         self.layer0 = nn.Conv2d(
+            # for better performance, using reflect padding
             input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
         )
 
@@ -341,48 +344,42 @@ class RainNet(nn.Module):
             self.norm1(8*ngf)  # 512 512
         )
 
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
-                                    innermost=True, enc=norm_type_indicator[6], dec=norm_type_indicator[7])  # add the innermost layer
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                    use_dropout=use_dropout, enc=norm_type_indicator[5], dec=norm_type_indicator[8])
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                    use_dropout=use_dropout, enc=norm_type_indicator[4], dec=norm_type_indicator[9])
-        self.unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                         use_dropout=use_dropout, enc=norm_type_indicator[3], dec=norm_type_indicator[10])
-
-        # for i in range(4):
-        #     if i == 0:
-        #         self.unet_block = UnetBlockCodec(
-        #             8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
-        #             # 0: IN / 1: RAIN
-        #             norm_layer=norm_layer, enc=0, dec=1
-        #         )
-        #     else:
-        #         self.unet_block = UnetBlockCodec(
-        #             8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-        #             norm_layer=norm_layer, enc=0, dec=1
-        #         )
+        for i in range(4):
+            if i == 0:
+                self.unet_block = UnetBlockCodec(
+                    8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
+                    # 0: IN / 1: RAIN
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                )
+            else:
+                self.unet_block = UnetBlockCodec(
+                    8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                )
 
         self.layer4 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
                 16*ngf, 4*ngf, 8, 2, 3, False
             ),
-            self.norm2(4*ngf))
+            self.norm2(4*ngf)
+        )
 
         self.layer5 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
                 8*ngf, 2*ngf, 8, 2, 3, False
             ),
-            self.norm2(2*ngf))
+            self.norm2(2*ngf)
+        )
 
         self.layer6 = nn.Sequential(
             get_act_dconv(
                 nn.ReLU(),
                 4*ngf, ngf, 8, 2, 3, False
             ),
-            self.norm2(ngf))
+            self.norm2(ngf)
+        )
 
         if use_attention:
             self.layer4Att = nn.Sequential(
