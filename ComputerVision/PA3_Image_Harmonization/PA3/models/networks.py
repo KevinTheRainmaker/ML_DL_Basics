@@ -357,29 +357,14 @@ class RainNet(nn.Module):
                     norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
                 )
 
-        self.layer4 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                16*ngf, 4*ngf, 8, 2, 3, False
-            ),
-            self.norm2(4*ngf)
-        )
+        self.layer4 = get_act_dconv(nn.ReLU(), 16*ngf, 4*ngf, 8, 2, 3, False)
+        self.layer4RAIN = self.norm2(4*ngf)
 
-        self.layer5 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                8*ngf, 2*ngf, 8, 2, 3, False
-            ),
-            self.norm2(2*ngf)
-        )
+        self.layer5 = get_act_dconv(nn.ReLU(), 8*ngf, 2*ngf, 8, 2, 3, False)
+        self.layer5RAIN = self.norm2(2*ngf)
 
-        self.layer6 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                4*ngf, ngf, 8, 2, 3, False
-            ),
-            self.norm2(ngf)
-        )
+        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 8, 2, 3, False)
+        self.layer6RAIN = self.norm2(ngf)
 
         if use_attention:
             self.layer4Att = nn.Sequential(
@@ -414,17 +399,20 @@ class RainNet(nn.Module):
 
         ux = self.unet_block(x3, mask)
 
-        dx2 = self.layer4(ux, mask)
+        dx2 = self.layer4(ux)
+        dx2 = self.layer4RAIN(dx2, mask)  # for RAIN
         dx2 = torch.cat([dx2, x2], dim=1)
         if self.use_attention:
             dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
 
-        dx1 = self.layer5(dx2, mask)
+        dx1 = self.layer5(dx2)
+        dx1 = self.layer4RAIN(dx1, mask)
         dx1 = torch.cat([dx1, x1], dim=1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) @ dx1
 
-        dx0 = self.layer6(dx1, mask)
+        dx0 = self.layer6(dx1)
+        dx0 = self.layer4RAIN(dx0, mask)
         dx0 = torch.cat([dx0, x0], dim=1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) @ dx0
