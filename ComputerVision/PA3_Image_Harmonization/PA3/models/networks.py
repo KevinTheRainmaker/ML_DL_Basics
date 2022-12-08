@@ -308,8 +308,12 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.norm1 = norm_type_list[0]
-        self.norm2 = norm_type_list[0]
+        self.use_rain = 1
+        IN_norm = 0
+        RAIN_norm = self.use_rain
+
+        self.norm1 = norm_type_list[IN_norm]
+        self.norm2 = norm_type_list[RAIN_norm]
 
         self.layer0 = nn.Conv2d(
             input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
@@ -344,34 +348,45 @@ class RainNet(nn.Module):
                 self. unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
                     # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
                 )
             else:
                 self.unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
                 )
 
-        self.layer4 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                16*ngf, 4*ngf, 8, 2, 3, False
-            ),
-            self.norm2(4*ngf))
+        # self.layer4 = nn.Sequential(
+        #     get_act_dconv(
+        #         nn.ReLU(),
+        #         16*ngf, 4*ngf, 8, 2, 3, False
+        #     ),
+        #     self.norm2(4*ngf))
 
-        self.layer5 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                8*ngf, 2*ngf, 8, 2, 3, False
-            ),
-            self.norm2(2*ngf))
+        # self.layer5 = nn.Sequential(
+        #     get_act_dconv(
+        #         nn.ReLU(),
+        #         8*ngf, 2*ngf, 8, 2, 3, False
+        #     ),
+        #     self.norm2(2*ngf))
 
-        self.layer6 = nn.Sequential(
-            get_act_dconv(
-                nn.ReLU(),
-                4*ngf, ngf, 8, 2, 3, False
-            ),
-            self.norm2(ngf))
+        # self.layer6 = nn.Sequential(
+        #     get_act_dconv(
+        #         nn.ReLU(),
+        #         4*ngf, ngf, 8, 2, 3, False
+        #     ),
+        #     self.norm2(ngf))
+
+        self.layer4 = get_act_dconv(
+            nn.ReLU(), 16*ngf, 4*ngf, 8, 2, 3, False)
+        self.layer4_norm = self.norm2(4*ngf)
+
+        self.layer5 = get_act_dconv(
+            nn.ReLU(), 8*ngf, 2*ngf, 8, 2, 3, False)
+        self.layer5_norm = self.norm2(2*ngf)
+
+        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 8, 2, 3, False)
+        self.layer6_norm = self.norm2(ngf)
 
         if use_attention:
             self.layer4Att = nn.Sequential(
@@ -407,16 +422,31 @@ class RainNet(nn.Module):
         ux = self.unet_block(x3, mask)
 
         dx2 = self.layer4(ux)
+        if self.use_rain:
+            dx2 = self.layer4_norm(dx2, mask)  # for RAIN
+        else:
+            dx2 = self.layer4_norm(dx2)
+
         dx2 = torch.cat([dx2, x2], dim=1)
         if self.use_attention:
             dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
 
         dx1 = self.layer5(dx2)
+        if self.use_rain:
+            dx1 = self.layer5_norm(dx1, mask)
+        else:
+            dx1 = self.layer5_norm(dx1)
+
         dx1 = torch.cat([dx1, x1], dim=1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
+        if self.use_rain:
+            dx0 = self.layer6_norm(dx0, mask)
+        else:
+            dx0 = self.layer6_norm(dx0)
+
         dx0 = torch.cat([dx0, x0], dim=1)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) @ dx0
