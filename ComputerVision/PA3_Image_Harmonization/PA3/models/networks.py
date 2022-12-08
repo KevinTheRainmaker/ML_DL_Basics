@@ -309,89 +309,51 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.use_rain = 1
-        IN_norm = int(0)
-        RAIN_norm = int(self.use_rain)
+        self.model_layer0 = nn.Conv2d(
+            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False)
+        self.model_layer1 = get_act_conv(
+            nn.LeakyReLU(0.2, True), ngf, ngf*2, 4, 2, 1, False)
+        self.model_layer1norm = norm_type_list[norm_type_indicator[0]](ngf*2)
 
-        self.norm1 = norm_type_list[IN_norm]
-        self.norm2 = norm_type_list[RAIN_norm]
+        self.model_layer2 = get_act_conv(nn.LeakyReLU(
+            0.2, True), ngf*2, ngf*4, 4, 2, 1, False)
+        self.model_layer2norm = norm_type_list[norm_type_indicator[1]](ngf*4)
 
-        self.layer0 = nn.Conv2d(
-            # add reflect padding here too
-            input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
-        )
+        self.model_layer3 = get_act_conv(nn.LeakyReLU(
+            0.2, True), ngf*4, ngf*8, 4, 2, 1, False)
+        self.model_layer3norm = norm_type_list[norm_type_indicator[2]](ngf*8)
 
-        self.layer1 = get_act_conv(
-            nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            ngf, 2*ngf, 8, 2, 3, False, 0.2  # Add dropout
-        )
-        self.layer1_norm = self.norm1(2*ngf)
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
+                                    innermost=True, enc=norm_type_indicator[6], dec=norm_type_indicator[7])  # add the innermost layer
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                    use_dropout=use_dropout, enc=norm_type_indicator[5], dec=norm_type_indicator[8])
+        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                    use_dropout=use_dropout, enc=norm_type_indicator[4], dec=norm_type_indicator[9])
+        self.unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
+                                         use_dropout=use_dropout, enc=norm_type_indicator[3], dec=norm_type_indicator[10])
 
-        self.layer2 = get_act_conv(
-            nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            2*ngf, 4*ngf, 8, 2, 3, False, 0.2
-        )
-        self.layer2_norm = self.norm1(4*ngf)
-
-        self.layer3 = get_act_conv(
-            nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            4*ngf, 8*ngf, 8, 2, 3, False, 0.2
-        )
-        self.layer3_norm = self.norm1(8*ngf)  # 512 512
-
-        for i in range(4):
-            if i == 0:
-                unet_block = UnetBlockCodec(
-                    outer_nc=8*ngf, inner_nc=8*ngf, innermost=True, use_dropout=self.use_dropout,
-                    # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
-                )
-            else:
-                unet_block = UnetBlockCodec(
-                    outer_nc=8*ngf, inner_nc=8*ngf, submodule=unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
-                )
-
-        self.unet_block = unet_block
-
-        self.layer4 = get_act_dconv(
-            nn.ReLU(),
-            16*ngf, 4*ngf, 8, 2, 3, False
-        )
-        self.layer4_norm = self.norm2(4*ngf)
-
-        self.layer5 = get_act_dconv(
-            nn.ReLU(),
-            8*ngf, 2*ngf, 8, 2, 3, False
-        )
-        self.layer5_norm = self.norm2(2*ngf)
-
-        self.layer6 = get_act_dconv(
-            nn.ReLU(),
-            4*ngf, ngf, 8, 2, 3, False
-        )
-        self.layer6_norm = self.norm2(ngf)
-
+        self.model_layer11 = get_act_dconv(
+            nn.ReLU(True), ngf*16, ngf*4, 4, 2, 1, False)
+        self.model_layer11norm = norm_type_list[norm_type_indicator[11]](ngf*4)
         if use_attention:
-            self.layer4Att = nn.Sequential(
-                nn.Conv2d(8*ngf, 8*ngf, kernel_size=1),
-                nn.Sigmoid()
-            )
+            self.model_layer11att = nn.Sequential(
+                nn.Conv2d(ngf*8, ngf*8, kernel_size=1, stride=1), nn.Sigmoid())
 
-            self.layer5Att = nn.Sequential(
-                nn.Conv2d(4*ngf, 4*ngf, kernel_size=1),
-                nn.Sigmoid()
-            )
+        self.model_layer12 = get_act_dconv(
+            nn.ReLU(True), ngf*8, ngf*2, 4, 2, 1, False)
+        self.model_layer12norm = norm_type_list[norm_type_indicator[12]](ngf*2)
+        if use_attention:
+            self.model_layer12att = nn.Sequential(
+                nn.Conv2d(ngf*4, ngf*4, kernel_size=1, stride=1), nn.Sigmoid())
 
-            self.layer6Att = nn.Sequential(
-                nn.Conv2d(2*ngf, 2*ngf, kernel_size=1),
-                nn.Sigmoid()
-            )
-
-        self.out_layer = nn.Sequential(
-            nn.ConvTranspose2d(2*ngf, output_nc, 8, 2, 3),
-            nn.Tanh()
-        )
+        self.model_layer13 = get_act_dconv(
+            nn.ReLU(True), ngf*4, ngf, 4, 2, 1, False)
+        self.model_layer13norm = norm_type_list[norm_type_indicator[13]](ngf)
+        if use_attention:
+            self.model_layer13att = nn.Sequential(
+                nn.Conv2d(ngf*2, ngf*2, kernel_size=1, stride=1), nn.Sigmoid())
+        self.model_out = nn.Sequential(nn.ReLU(True), nn.ConvTranspose2d(
+            ngf * 2, output_nc, kernel_size=4, stride=2, padding=1), nn.Tanh())
 
     def forward(self, x, mask):
         # fill the blank
