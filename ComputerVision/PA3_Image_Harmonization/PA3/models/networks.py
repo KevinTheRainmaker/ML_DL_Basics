@@ -280,11 +280,6 @@ def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_
     conv.extend([
         nn.Conv2d(
             dims_in, dims_out, kernel_size=kernel,
-            # add same padding
-            padding='same', bias=bias
-        ),
-        nn.Conv2d(
-            dims_in, dims_out, kernel_size=kernel,
             # add reflect padding for better segmentation performance
             stride=stride, padding=padding, padding_mode='reflect', bias=bias
         ),
