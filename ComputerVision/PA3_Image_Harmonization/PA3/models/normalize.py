@@ -24,21 +24,18 @@ class RAIN(nn.Module):
         mask = F.interpolate(mask.detach(), size=x.size()[2:])  # resized_mask
 
         bg_mask = (1-mask)
-        bg_mean, bg_std = self.get_foreground_mean_std(x * bg_mask, bg_mask)
+        bg_mean, bg_std = self.get_foreground_mean_std(x, bg_mask)
         bg_norm = self.background_gamma[None, :, None, None] * \
             ((x - bg_mean) / bg_std) + \
             self.background_beta[None, :, None, None]
 
         normalized_background = bg_norm * bg_mask
 
-        fg_mean, fg_std = self.get_foreground_mean_std(x * mask, mask)
+        fg_mean, fg_std = self.get_foreground_mean_std(x, mask)
         fg_norm = self.foreground_gamma[None, :, None, None] * \
-            ((x - fg_mean) / fg_std) + \
+            ((x - fg_mean) / fg_std * bg_std + bg_mean) + \
             self.foreground_beta[None, :, None, None]
 
-        fg_norm = fg_norm * \
-            self.background_gamma[None, :, None, None] + \
-            self.background_beta[None, :, None, None]
         normalized_foreground = fg_norm * mask
 
         return normalized_foreground + normalized_background
