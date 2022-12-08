@@ -33,7 +33,7 @@ class RAIN(nn.Module):
 
         fg_mean, fg_std = self.get_foreground_mean_std(x * mask, mask)
         fg_norm = self.foreground_gamma[None, :, None, None] * \
-            ((x - fg_mean) / fg_std * bg_std + bg_mean) + \
+            ((x - fg_mean) / fg_std) + \
             self.foreground_beta[None, :, None, None]
 
         fg_norm = fg_norm * \
@@ -46,8 +46,9 @@ class RAIN(nn.Module):
     def get_foreground_mean_std(self, region, mask):
         # fill the blank
         num = torch.sum(mask, dim=[2, 3])
+        sigma = torch.sum(region * mask, dim=[2, 3])
 
-        mean = (torch.sum(region * mask) / num)[:, :, None, None]
+        mean = (sigma / num)[:, :, None, None]
         var = torch.sum(
             (region * mask - mean) ** 2,
             dim=[2, 3]
