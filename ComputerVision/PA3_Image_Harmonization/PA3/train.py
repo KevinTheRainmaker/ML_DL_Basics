@@ -173,6 +173,6 @@ if __name__ == '__main__':
         # update learning rates at the end of every epoch.
         model.update_learning_rate()
         print('Current learning rate: {}, {}'.format(
-            model.schedulers[0].get_lr(), model.schedulers[1].get_lr()))
+            model.schedulers[0].get_last_lr(), model.schedulers[1].get_last_lr()))
 
     writer.close()

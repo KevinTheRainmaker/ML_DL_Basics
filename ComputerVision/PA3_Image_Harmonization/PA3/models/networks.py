@@ -280,7 +280,8 @@ def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv.append(
         nn.Conv2d(
             # for better segmentation performance: use reflect padding instead of zero padding
-            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, padding_mode='reflect', bias=bias
+            # , padding_mode='reflect'
+            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, bias=bias
         )
     )
     return nn.Sequential(*conv)
@@ -308,7 +309,7 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.use_rain = 1
+        self.use_rain = 0
         IN_norm = 0
         RAIN_norm = self.use_rain
 
@@ -316,7 +317,7 @@ class RainNet(nn.Module):
         self.norm2 = norm_type_list[RAIN_norm]
 
         self.layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
+            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False
         )
 
         self.layer1 = nn.Sequential(
