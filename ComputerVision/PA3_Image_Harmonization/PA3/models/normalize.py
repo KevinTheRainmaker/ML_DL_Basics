@@ -51,7 +51,10 @@ class RAIN(nn.Module):
         sigma = torch.sum(region, dim=[2, 3])
 
         mean = (sigma / num)[:, :, None, None]
-        var = torch.sum(region-mean, dim=[2, 3])/num
+        var = torch.sum(
+            (region + (1 - mask) * mean - mean) ** 2,
+            dim=[2, 3]
+        ) / num
         var = var[:, :, None, None]
 
         return mean, torch.sqrt(var+self.eps)
