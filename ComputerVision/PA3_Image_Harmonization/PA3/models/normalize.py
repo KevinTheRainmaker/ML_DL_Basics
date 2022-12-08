@@ -20,27 +20,36 @@ class RAIN(nn.Module):
         self.eps = eps
 
     def forward(self, x, mask):
-        mask = F.interpolate(mask.detach(), size=x.size()[2:], mode='nearest')
-        mean_back, std_back = self.get_foreground_mean_std(
-            x * (1-mask), 1 - mask)  # the background features
-        normalized = (x - mean_back) / std_back
-        normalized_background = (normalized * (1 + self.background_gamma[None, :, None, None]) +
-                                 self.background_beta[None, :, None, None]) * (1 - mask)
+        # fill the blank
+        mask = F.interpolate(mask.detach(), size=x.size()[2:])  # resized_mask
 
-        mean_fore, std_fore = self.get_foreground_mean_std(
-            x * mask, mask)  # the background features
-        normalized = (x - mean_fore) / std_fore * std_back + mean_back
-        normalized_foreground = (normalized * (1 + self.foreground_gamma[None, :, None, None]) +
-                                 self.foreground_beta[None, :, None, None]) * mask
+        bg_mask = (1-mask)
+        bg_mean, bg_std = self.get_foreground_mean_std(x, bg_mask)
+        bg_norm = self.background_gamma[None, :, None, None] * \
+            ((x - bg_mean) / bg_std) + \
+            self.background_beta[None, :, None, None]
+
+        normalized_background = bg_norm * bg_mask
+
+        fg_mean, fg_std = self.get_foreground_mean_std(x, mask)
+        fg_norm = self.foreground_gamma[None, :, None, None] * \
+            ((x - fg_mean) / fg_std * bg_std + bg_mean) + \
+            self.foreground_beta[None, :, None, None]
+
+        normalized_foreground = fg_norm * mask
 
         return normalized_foreground + normalized_background
 
     def get_foreground_mean_std(self, region, mask):
-        sum = torch.sum(region, dim=[2, 3])     # (B, C)
-        num = torch.sum(mask, dim=[2, 3])       # (B, C)
-        mu = sum / (num + self.eps)
-        mean = mu[:, :, None, None]
-        var = torch.sum((region + (1 - mask)*mean - mean)
-                        ** 2, dim=[2, 3]) / (num + self.eps)
+        # fill the blank
+        num = torch.sum(mask, dim=[2, 3])
+        sigma = torch.sum(region * mask, dim=[2, 3])
+
+        mean = (sigma / num)[:, :, None, None]
+        var = torch.sum(
+            (region * mask - mean) ** 2,
+            dim=[2, 3]
+        ) / num
         var = var[:, :, None, None]
+
         return mean, torch.sqrt(var+self.eps)
