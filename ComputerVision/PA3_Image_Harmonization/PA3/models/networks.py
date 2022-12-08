@@ -299,7 +299,7 @@ def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout
     conv.extend([
         nn.ConvTranspose2d(
             dims_in, dims_out, kernel_size=kernel,
-            stride=stride, padding=padding, padding_mode='reflect', bias=bias
+            stride=stride, padding=padding, bias=bias
         ),
         nn.Dropout(dropout_rate)
     ])
