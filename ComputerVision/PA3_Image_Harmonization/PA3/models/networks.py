@@ -275,22 +275,26 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         return 0.0, None
 
 
-def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
+def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate):
     conv = [act]
-    conv.append(
+    conv.extend([
+        # Add dropout
+        nn.Dropout(dropout_rate),
         nn.Conv2d(
-            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, bias=bias
+            # add reflect padding
+            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, bias=bias, padding_mode='reflect'
         )
-    )
+    ])
     return nn.Sequential(*conv)
 
 
-def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
+def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate):
     conv = [act]
-    conv.append(
+    conv.extend([
+        nn.Dropout(dropout_rate),
         nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel,
                            stride=stride, padding=padding, bias=bias),
-    )
+    ])
     return nn.Sequential(*conv)
 
 
@@ -315,24 +319,25 @@ class RainNet(nn.Module):
         self.norm2 = norm_type_list[RAIN_norm]
 
         self.layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False
+            # reflect padding here too
+            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False, padding_mode='reflect'
         )
 
         self.layer1 = get_act_conv(
             nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            ngf, 2*ngf, 8, 2, 3, False
+            ngf, 2*ngf, 8, 2, 3, False, 0.2
         )
         self.layer1_norm = self.norm1(2*ngf)
 
         self.layer2 = get_act_conv(
             nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            2*ngf, 4*ngf, 8, 2, 3, False
+            2*ngf, 4*ngf, 8, 2, 3, False, 0.2
         )
         self.layer2_norm = self.norm1(4*ngf)
 
         self.layer3 = get_act_conv(
             nn.LeakyReLU(negative_slope=0.3, inplace=True),
-            4*ngf, 8*ngf, 8, 2, 3, False
+            4*ngf, 8*ngf, 8, 2, 3, False, 0.4
         )
         self.layer3_norm = self.norm1(8*ngf)  # 512 512
 
@@ -353,19 +358,19 @@ class RainNet(nn.Module):
 
         self.layer4 = get_act_dconv(
             nn.ReLU(),
-            16*ngf, 4*ngf, 8, 2, 3, False
+            16*ngf, 4*ngf, 8, 2, 3, False, 0.4
         )
         self.layer4_norm = self.norm2(4*ngf)
 
         self.layer5 = get_act_dconv(
             nn.ReLU(),
-            8*ngf, 2*ngf, 8, 2, 3, False
+            8*ngf, 2*ngf, 8, 2, 3, False, 0.4
         )
         self.layer5_norm = self.norm2(2*ngf)
 
         self.layer6 = get_act_dconv(
             nn.ReLU(),
-            4*ngf, ngf, 8, 2, 3, False
+            4*ngf, ngf, 8, 2, 3, False, 0.4
         )
         self.layer6_norm = self.norm2(ngf)
 
