@@ -308,8 +308,8 @@ class RainNet(nn.Module):
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
         self.use_rain = 1
-        IN_norm = 0
-        RAIN_norm = self.use_rain
+        IN_norm = int(0)
+        RAIN_norm = int(self.use_rain)
 
         self.norm1 = norm_type_list[IN_norm]
         self.norm2 = norm_type_list[RAIN_norm]
@@ -318,16 +318,22 @@ class RainNet(nn.Module):
             input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False
         )
 
-        self.layer1 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3), ngf, 2*ngf, 8, 2, 3, False)
+        self.layer1 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            ngf, 2*ngf, 8, 2, 3, False
+        )
         self.layer1_norm = self.norm1(2*ngf)
 
-        self.layer2 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3), 2*ngf, 4*ngf, 8, 2, 3, False)
+        self.layer2 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            2*ngf, 4*ngf, 8, 2, 3, False
+        )
         self.layer2_norm = self.norm1(4*ngf)
 
-        self.layer3 = get_act_conv(nn.LeakyReLU(
-            negative_slope=0.3), 4*ngf, 8*ngf, 8, 2, 3, False)
+        self.layer3 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            4*ngf, 8*ngf, 8, 2, 3, False
+        )
         self.layer3_norm = self.norm1(8*ngf)  # 512 512
 
         for i in range(4):
@@ -346,14 +352,21 @@ class RainNet(nn.Module):
         self.unet_block = unet_block
 
         self.layer4 = get_act_dconv(
-            nn.ReLU(), 16*ngf, 4*ngf, 8, 2, 3, False)
+            nn.ReLU(),
+            16*ngf, 4*ngf, 8, 2, 3, False
+        )
         self.layer4_norm = self.norm2(4*ngf)
 
         self.layer5 = get_act_dconv(
-            nn.ReLU(), 8*ngf, 2*ngf, 8, 2, 3, False)
+            nn.ReLU(),
+            8*ngf, 2*ngf, 8, 2, 3, False
+        )
         self.layer5_norm = self.norm2(2*ngf)
 
-        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 8, 2, 3, False)
+        self.layer6 = get_act_dconv(
+            nn.ReLU(),
+            4*ngf, ngf, 8, 2, 3, False
+        )
         self.layer6_norm = self.norm2(ngf)
 
         if use_attention:
@@ -382,13 +395,13 @@ class RainNet(nn.Module):
         x0 = self.layer0(x)
 
         x1 = self.layer1(x0)
-        x1 = self.layer1_norm(x1, mask)
+        x1 = self.layer1_norm(x1)
 
         x2 = self.layer2(x1)
-        x2 = self.layer2_norm(x2, mask)
+        x2 = self.layer2_norm(x2)
 
         x3 = self.layer3(x2)
-        x3 = self.layer3_norm(x3, mask)
+        x3 = self.layer3_norm(x3)
 
         ux = self.unet_block(x3, mask)
 
@@ -413,7 +426,7 @@ class RainNet(nn.Module):
             dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
-        if self.use_rain:
+        if self.use_rain == 1:
             dx0 = self.layer6_norm(dx0, mask)
         else:
             dx0 = self.layer6_norm(dx0)
