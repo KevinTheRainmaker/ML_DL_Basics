@@ -277,15 +277,18 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
 
 def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.append(nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
-                stride=stride, padding=padding, bias=bias))
+    conv.extend([
+        nn.Dropout(0.25),
+        nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
+                stride=stride, padding=padding, padding_mode='reflect', bias=bias)
+    ])
     return nn.Sequential(*conv)
 
 
 def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
     conv.append(nn.ConvTranspose2d(dims_in, dims_out,
-                kernel_size=kernel, stride=2, padding=1, bias=False))
+                kernel_size=kernel, stride=stride, padding=padding, bias=bias))
     return nn.Sequential(*conv)
 
 
@@ -303,17 +306,17 @@ class RainNet(nn.Module):
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
         self.model_layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=4, stride=2, padding=1, bias=False)
+            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False)
         self.model_layer1 = get_act_conv(
-            nn.LeakyReLU(0.2, True), ngf, ngf*2, 4, 2, 1, False)
+            nn.LeakyReLU(0.2, True), ngf, ngf*2, 8, 2, 3, False)
         self.model_layer1norm = norm_type_list[norm_type_indicator[0]](ngf*2)
 
         self.model_layer2 = get_act_conv(nn.LeakyReLU(
-            0.2, True), ngf*2, ngf*4, 4, 2, 1, False)
+            0.2, True), ngf*2, ngf*4, 8, 2, 3, False)
         self.model_layer2norm = norm_type_list[norm_type_indicator[1]](ngf*4)
 
         self.model_layer3 = get_act_conv(nn.LeakyReLU(
-            0.2, True), ngf*4, ngf*8, 4, 2, 1, False)
+            0.2, True), ngf*4, ngf*8, 8, 2, 3, False)
         self.model_layer3norm = norm_type_list[norm_type_indicator[2]](ngf*8)
 
         unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
@@ -326,27 +329,27 @@ class RainNet(nn.Module):
                                          use_dropout=use_dropout, enc=norm_type_indicator[3], dec=norm_type_indicator[10])
 
         self.model_layer11 = get_act_dconv(
-            nn.ReLU(True), ngf*16, ngf*4, 4, 2, 1, False)
+            nn.ReLU(True), ngf*16, ngf*4, 8, 2, 3, False)
         self.model_layer11norm = norm_type_list[norm_type_indicator[11]](ngf*4)
         if use_attention:
             self.model_layer11att = nn.Sequential(
                 nn.Conv2d(ngf*8, ngf*8, kernel_size=1, stride=1), nn.Sigmoid())
 
         self.model_layer12 = get_act_dconv(
-            nn.ReLU(True), ngf*8, ngf*2, 4, 2, 1, False)
+            nn.ReLU(True), ngf*8, ngf*2, 8, 2, 3, False)
         self.model_layer12norm = norm_type_list[norm_type_indicator[12]](ngf*2)
         if use_attention:
             self.model_layer12att = nn.Sequential(
                 nn.Conv2d(ngf*4, ngf*4, kernel_size=1, stride=1), nn.Sigmoid())
 
         self.model_layer13 = get_act_dconv(
-            nn.ReLU(True), ngf*4, ngf, 4, 2, 1, False)
+            nn.ReLU(True), ngf*4, ngf, 8, 2, 3, False)
         self.model_layer13norm = norm_type_list[norm_type_indicator[13]](ngf)
         if use_attention:
             self.model_layer13att = nn.Sequential(
                 nn.Conv2d(ngf*2, ngf*2, kernel_size=1, stride=1), nn.Sigmoid())
         self.model_out = nn.Sequential(nn.ReLU(True), nn.ConvTranspose2d(
-            ngf * 2, output_nc, kernel_size=4, stride=2, padding=1), nn.Tanh())
+            ngf * 2, output_nc, kernel_size=8, str3de=2, padding=1), nn.Tanh())
 
     def forward(self, x, mask):
         # fill the blank
