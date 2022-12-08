@@ -275,24 +275,22 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
         return 0.0, None
 
 
-def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias, dropout_rate, dilation_rate, mode='reflect'):
+def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.extend([
+    conv.append([
         nn.Conv2d(
-            # for better segmentation performance: use reflect padding instead of zero padding / dilated convolution
-            dims_in, dims_out, kernel_size=kernel, dilation=dilation_rate, padding='same', padding_mode=mode, bias=bias
-        ),
-        nn.MaxPool2d(2, 2),
-        nn.Dropout(dropout_rate)  # add dropout after maxpool
+            # for better segmentation performance: use reflect padding instead of zero padding
+            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, padding_mode='reflect', bias=bias
+        )
     ])
     return nn.Sequential(*conv)
 
 
 def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.extend([
+    conv.append([
         nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel,
-                           stride=stride, padding=padding, bias=bias)
+                           stride=stride, padding=padding, bias=bias),
     ])
     return nn.Sequential(*conv)
 
@@ -310,22 +308,17 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.use_rain = 1
-        IN_norm = 0
-        RAIN_norm = self.use_rain
-
-        self.norm1 = norm_type_list[IN_norm]
-        self.norm2 = norm_type_list[RAIN_norm]
+        self.norm1 = norm_type_list[0]
+        self.norm2 = norm_type_list[0]
 
         self.layer0 = nn.Conv2d(
-            # for better performance, using reflect padding
             input_nc, ngf, kernel_size=8, stride=2, padding=3, padding_mode='reflect', bias=False
         )
 
         self.layer1 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                ngf, 2*ngf, 8, 3, 38, False, 0.25, 2  # 2-dilated convolution
+                ngf, 2*ngf, 8, 2, 3, False
             ),
             self.norm1(2*ngf)
         )
@@ -333,7 +326,7 @@ class RainNet(nn.Module):
         self.layer2 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                2*ngf, 4*ngf, 8, 2, 7, False, 0.5, 2  # 2-dilated convolution
+                2*ngf, 4*ngf, 8, 2, 3, False
             ),
             self.norm1(4*ngf)
         )
@@ -341,33 +334,44 @@ class RainNet(nn.Module):
         self.layer3 = nn.Sequential(
             get_act_conv(
                 nn.LeakyReLU(negative_slope=0.3),
-                4*ngf, 8*ngf, 8, 2, 7, False, 0.5, 2  # 2-dilated convolution
+                4*ngf, 8*ngf, 8, 2, 3, False
             ),
             self.norm1(8*ngf)  # 512 512
         )
 
         for i in range(4):
             if i == 0:
-                self.unet_block = UnetBlockCodec(
+                self. unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
                     # 0: IN / 1: RAIN
-                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
                 )
             else:
                 self.unet_block = UnetBlockCodec(
                     8*ngf, 8*ngf, submodule=self.unet_block, use_dropout=self.use_dropout,
-                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                    norm_layer=norm_layer, enc=norm_type_indicator[0], dec=norm_type_indicator[0]
                 )
-        self.layer4 = get_act_dconv(
-            nn.ReLU(), 16*ngf, 4*ngf, 8, 2, 3, False)
-        self.layer4_norm = self.norm2(4*ngf)
 
-        self.layer5 = get_act_dconv(
-            nn.ReLU(), 8*ngf, 2*ngf, 8, 2, 3, False)
-        self.layer5_norm = self.norm2(2*ngf)
+        self.layer4 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                16*ngf, 4*ngf, 8, 2, 3, False
+            ),
+            self.norm2(4*ngf))
 
-        self.layer6 = get_act_dconv(nn.ReLU(), 4*ngf, ngf, 8, 2, 3, False)
-        self.layer6_norm = self.norm2(ngf)
+        self.layer5 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                8*ngf, 2*ngf, 8, 2, 3, False
+            ),
+            self.norm2(2*ngf))
+
+        self.layer6 = nn.Sequential(
+            get_act_dconv(
+                nn.ReLU(),
+                4*ngf, ngf, 8, 2, 3, False
+            ),
+            self.norm2(ngf))
 
         if use_attention:
             self.layer4Att = nn.Sequential(
@@ -384,8 +388,6 @@ class RainNet(nn.Module):
                 nn.Conv2d(2*ngf, 2*ngf, kernel_size=1),
                 nn.Sigmoid()
             )
-
-        self.dropout = nn.Dropout(0.5)  # add dropout
 
         self.out_layer = nn.Sequential(
             nn.ConvTranspose2d(2*ngf, output_nc, 8, 2, 3),
@@ -405,35 +407,17 @@ class RainNet(nn.Module):
         ux = self.unet_block(x3, mask)
 
         dx2 = self.layer4(ux)
-        if self.use_rain:
-            dx2 = self.layer4_norm(dx2, mask)  # for RAIN
-        else:
-            dx2 = self.layer4_norm(dx2)
-
         dx2 = torch.cat([dx2, x2], dim=1)
-        dx2 = self.dropout(dx2)
         if self.use_attention:
             dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
 
         dx1 = self.layer5(dx2)
-        if self.use_rain:
-            dx1 = self.layer5_norm(dx1, mask)
-        else:
-            dx1 = self.layer5_norm(dx1)
-
         dx1 = torch.cat([dx1, x1], dim=1)
-        dx1 = self.dropout(dx1)
         if self.use_attention:
             dx1 = self.layer5Att(dx1) @ dx1
 
         dx0 = self.layer6(dx1)
-        if self.use_rain:
-            dx0 = self.layer6_norm(dx0, mask)
-        else:
-            dx0 = self.layer6_norm(dx0)
-
         dx0 = torch.cat([dx0, x0], dim=1)
-        dx0 = self.dropout(dx0)
         if self.use_attention:
             dx0 = self.layer6Att(dx0) @ dx0
 
