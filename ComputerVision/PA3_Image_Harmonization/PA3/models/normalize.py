@@ -25,14 +25,14 @@ class RAIN(nn.Module):
 
         bg_mask = (1-mask)
         bg_mean, bg_std = self.get_foreground_mean_std(x, bg_mask)
-        bg_norm = self.background_gamma[None, :, None, None] * \
+        bg_norm = (self.background_gamma[None, :, None, None]+1) * \
             ((x - bg_mean) / bg_std) + \
             self.background_beta[None, :, None, None]
 
         normalized_background = bg_norm * bg_mask
 
         fg_mean, fg_std = self.get_foreground_mean_std(x, mask)
-        fg_norm = self.foreground_gamma[None, :, None, None] * \
+        fg_norm = (self.foreground_gamma[None, :, None, None]+1) * \
             ((x - fg_mean) / fg_std * bg_std + bg_mean) + \
             self.foreground_beta[None, :, None, None]
 

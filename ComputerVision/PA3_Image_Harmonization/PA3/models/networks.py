@@ -277,18 +277,20 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
 
 def get_act_conv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.extend([
-        nn.Dropout(0.25),
-        nn.Conv2d(dims_in, dims_out, kernel_size=kernel,
-                stride=stride, padding=padding, padding_mode='reflect', bias=bias)
-    ])
+    conv.append(
+        nn.Conv2d(
+            dims_in, dims_out, kernel_size=kernel, stride=stride, padding=padding, bias=bias
+        )
+    )
     return nn.Sequential(*conv)
 
 
 def get_act_dconv(act, dims_in, dims_out, kernel, stride, padding, bias):
     conv = [act]
-    conv.append(nn.ConvTranspose2d(dims_in, dims_out,
-                kernel_size=kernel, stride=stride, padding=padding, bias=bias))
+    conv.append(
+        nn.ConvTranspose2d(dims_in, dims_out, kernel_size=kernel,
+                           stride=stride, padding=padding, bias=bias),
+    )
     return nn.Sequential(*conv)
 
 
@@ -305,137 +307,136 @@ class RainNet(nn.Module):
         norm_type_list = [get_norm_layer('instance'), get_norm_layer('rain')]
         # -------------------------------Network Settings-------------------------------------\
         # fill the blank
-        self.model_layer0 = nn.Conv2d(
-            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False)
-        self.model_layer1 = get_act_conv(
-            nn.LeakyReLU(0.2, True), ngf, ngf*2, 8, 2, 3, False)
-        self.model_layer1norm = norm_type_list[norm_type_indicator[0]](ngf*2)
+        self.use_rain = 1
+        IN_norm = int(0)
+        RAIN_norm = int(self.use_rain)
 
-        self.model_layer2 = get_act_conv(nn.LeakyReLU(
-            0.2, True), ngf*2, ngf*4, 8, 2, 3, False)
-        self.model_layer2norm = norm_type_list[norm_type_indicator[1]](ngf*4)
+        self.norm1 = norm_type_list[IN_norm]
+        self.norm2 = norm_type_list[RAIN_norm]
 
-        self.model_layer3 = get_act_conv(nn.LeakyReLU(
-            0.2, True), ngf*4, ngf*8, 8, 2, 3, False)
-        self.model_layer3norm = norm_type_list[norm_type_indicator[2]](ngf*8)
+        self.layer0 = nn.Conv2d(
+            input_nc, ngf, kernel_size=8, stride=2, padding=3, bias=False
+        )
 
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
-                                    innermost=True, enc=norm_type_indicator[6], dec=norm_type_indicator[7])  # add the innermost layer
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                    use_dropout=use_dropout, enc=norm_type_indicator[5], dec=norm_type_indicator[8])
-        unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                    use_dropout=use_dropout, enc=norm_type_indicator[4], dec=norm_type_indicator[9])
-        self.unet_block = UnetBlockCodec(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer,
-                                         use_dropout=use_dropout, enc=norm_type_indicator[3], dec=norm_type_indicator[10])
+        self.layer1 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            ngf, 2*ngf, 8, 2, 3, False
+        )
+        self.layer1_norm = self.norm1(2*ngf)
 
-        self.model_layer11 = get_act_dconv(
-            nn.ReLU(True), ngf*16, ngf*4, 8, 2, 3, False)
-        self.model_layer11norm = norm_type_list[norm_type_indicator[11]](ngf*4)
+        self.layer2 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            2*ngf, 4*ngf, 8, 2, 3, False
+        )
+        self.layer2_norm = self.norm1(4*ngf)
+
+        self.layer3 = get_act_conv(
+            nn.LeakyReLU(negative_slope=0.3, inplace=True),
+            4*ngf, 8*ngf, 8, 2, 3, False
+        )
+        self.layer3_norm = self.norm1(8*ngf)  # 512 512
+
+        for i in range(4):
+            if i == 0:
+                unet_block = UnetBlockCodec(
+                    outer_nc=8*ngf, inner_nc=8*ngf, innermost=True, use_dropout=self.use_dropout,
+                    # 0: IN / 1: RAIN
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                )
+            else:
+                unet_block = UnetBlockCodec(
+                    outer_nc=8*ngf, inner_nc=8*ngf, submodule=unet_block, use_dropout=self.use_dropout,
+                    norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
+                )
+
+        self.unet_block = unet_block
+
+        self.layer4 = get_act_dconv(
+            nn.ReLU(),
+            16*ngf, 4*ngf, 8, 2, 3, False
+        )
+        self.layer4_norm = self.norm2(4*ngf)
+
+        self.layer5 = get_act_dconv(
+            nn.ReLU(),
+            8*ngf, 2*ngf, 8, 2, 3, False
+        )
+        self.layer5_norm = self.norm2(2*ngf)
+
+        self.layer6 = get_act_dconv(
+            nn.ReLU(),
+            4*ngf, ngf, 8, 2, 3, False
+        )
+        self.layer6_norm = self.norm2(ngf)
+
         if use_attention:
-            self.model_layer11att = nn.Sequential(
-                nn.Conv2d(ngf*8, ngf*8, kernel_size=1, stride=1), nn.Sigmoid())
+            self.layer4Att = nn.Sequential(
+                nn.Conv2d(8*ngf, 8*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
 
-        self.model_layer12 = get_act_dconv(
-            nn.ReLU(True), ngf*8, ngf*2, 8, 2, 3, False)
-        self.model_layer12norm = norm_type_list[norm_type_indicator[12]](ngf*2)
-        if use_attention:
-            self.model_layer12att = nn.Sequential(
-                nn.Conv2d(ngf*4, ngf*4, kernel_size=1, stride=1), nn.Sigmoid())
+            self.layer5Att = nn.Sequential(
+                nn.Conv2d(4*ngf, 4*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
 
-        self.model_layer13 = get_act_dconv(
-            nn.ReLU(True), ngf*4, ngf, 8, 2, 3, False)
-        self.model_layer13norm = norm_type_list[norm_type_indicator[13]](ngf)
-        if use_attention:
-            self.model_layer13att = nn.Sequential(
-                nn.Conv2d(ngf*2, ngf*2, kernel_size=1, stride=1), nn.Sigmoid())
-        self.model_out = nn.Sequential(nn.ReLU(True), nn.ConvTranspose2d(
-            ngf * 2, output_nc, kernel_size=8, stride=2, padding=3), nn.Tanh())
+            self.layer6Att = nn.Sequential(
+                nn.Conv2d(2*ngf, 2*ngf, kernel_size=1),
+                nn.Sigmoid()
+            )
+
+        self.out_layer = nn.Sequential(
+            nn.ConvTranspose2d(2*ngf, output_nc, 8, 2, 3),
+            nn.Tanh()
+        )
 
     def forward(self, x, mask):
         # fill the blank
-        # x0 = self.layer0(x)
+        x0 = self.layer0(x)
 
-        # x1 = self.layer1(x0)
-        # x1 = self.layer1_norm(x1)
+        x1 = self.layer1(x0)
+        x1 = self.layer1_norm(x1)
 
-        # x2 = self.layer2(x1)
-        # x2 = self.layer2_norm(x2)
+        x2 = self.layer2(x1)
+        x2 = self.layer2_norm(x2)
 
-        # x3 = self.layer3(x2)
-        # x3 = self.layer3_norm(x3)
+        x3 = self.layer3(x2)
+        x3 = self.layer3_norm(x3)
 
-        # ux = self.unet_block(x3, mask)
+        ux = self.unet_block(x3, mask)
 
-        # dx2 = self.layer4(ux)
-        # if self.use_rain:
-        #     dx2 = self.layer4_norm(dx2, mask)  # for RAIN
-        # else:
-        #     dx2 = self.layer4_norm(dx2)
-
-        # dx2 = torch.cat([dx2, x2], dim=1)
-        # if self.use_attention:
-        #     dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
-
-        # dx1 = self.layer5(dx2)
-        # if self.use_rain:
-        #     dx1 = self.layer5_norm(dx1, mask)
-        # else:
-        #     dx1 = self.layer5_norm(dx1)
-
-        # dx1 = torch.cat([dx1, x1], dim=1)
-        # if self.use_attention:
-        #     dx1 = self.layer5Att(dx1) @ dx1
-
-        # dx0 = self.layer6(dx1)
-        # if self.use_rain == 1:
-        #     dx0 = self.layer6_norm(dx0, mask)
-        # else:
-        #     dx0 = self.layer6_norm(dx0)
-
-        # dx0 = torch.cat([dx0, x0], dim=1)
-        # if self.use_attention:
-        #     dx0 = self.layer6Att(dx0) @ dx0
-
-        # out = self.out_layer(dx0)
-        x0 = self.model_layer0(x)
-        x1 = self.model_layer1(x0)
-        x1 = self.model_layer1norm(x1)
-
-        x2 = self.model_layer2(x1)
-        x2 = self.model_layer2norm(x2)
-
-        x3 = self.model_layer3(x2)
-        x3 = self.model_layer3norm(x3)
-
-        ox3 = self.unet_block(x3, mask)
-        ox2 = self.model_layer11(ox3)
-        if self.model_layer11norm._get_name() in self.norm_namebuffer:
-            ox2 = self.model_layer11norm(ox2, mask)
+        dx2 = self.layer4(ux)
+        if self.use_rain:
+            dx2 = self.layer4_norm(dx2, mask)  # for RAIN
         else:
-            ox2 = self.model_layer11norm(ox2)
-        ox2 = torch.cat([x2, ox2], 1)
-        if self.use_attention:
-            ox2 = self.model_layer11att(ox2) * ox2
+            dx2 = self.layer4_norm(dx2)
 
-        ox1 = self.model_layer12(ox2)
-        if self.model_layer12norm._get_name() in self.norm_namebuffer:
-            ox1 = self.model_layer12norm(ox1, mask)
+        dx2 = torch.cat([dx2, x2], dim=1)
+        if self.use_attention:
+            dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
+
+        dx1 = self.layer5(dx2)
+        if self.use_rain:
+            dx1 = self.layer5_norm(dx1, mask)
         else:
-            ox1 = self.model_layer12norm(ox1)
-        ox1 = torch.cat([x1, ox1], 1)
-        if self.use_attention:
-            ox1 = self.model_layer12att(ox1) * ox1
+            dx1 = self.layer5_norm(dx1)
 
-        ox0 = self.model_layer13(ox1)
-        if self.model_layer13norm._get_name() in self.norm_namebuffer:
-            ox0 = self.model_layer13norm(ox0, mask)
+        dx1 = torch.cat([dx1, x1], dim=1)
+        if self.use_attention:
+            dx1 = self.layer5Att(dx1) @ dx1
+
+        dx0 = self.layer6(dx1)
+        if self.use_rain == 1:
+            dx0 = self.layer6_norm(dx0, mask)
         else:
-            ox0 = self.model_layer13norm(ox0)
-        ox0 = torch.cat([x0, ox0], 1)
-        if self.use_attention:
-            ox0 = self.model_layer13att(ox0) * ox0
+            dx0 = self.layer6_norm(dx0)
 
-        out = self.model_out(ox0)
+        dx0 = torch.cat([dx0, x0], dim=1)
+        if self.use_attention:
+            dx0 = self.layer6Att(dx0) @ dx0
+
+        out = self.out_layer(dx0)
+
         return out
 
     def processImage(self, x, mask, background=None):
