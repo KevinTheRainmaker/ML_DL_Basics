@@ -47,7 +47,7 @@ class RAIN(nn.Module):
 
         mean = (sigma / num)[:, :, None, None]
         var = torch.sum(
-            (region * mask - mean) ** 2,
+            (region * mask - mask*mean) ** 2,
             dim=[2, 3]
         ) / num
         var = var[:, :, None, None]
