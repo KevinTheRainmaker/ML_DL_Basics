@@ -339,13 +339,13 @@ class RainNet(nn.Module):
         for i in range(4):
             if i == 0:
                 unet_block = UnetBlockCodec(
-                    8*ngf, 8*ngf, innermost=True, use_dropout=self.use_dropout,
+                    outer_nc=8*ngf, inner_nc=8*ngf, innermost=True, use_dropout=self.use_dropout,
                     # 0: IN / 1: RAIN
                     norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
                 )
             else:
                 unet_block = UnetBlockCodec(
-                    8*ngf, 8*ngf, submodule=unet_block, use_dropout=self.use_dropout,
+                    outer_nc=8*ngf, inner_nc=8*ngf, submodule=unet_block, use_dropout=self.use_dropout,
                     norm_layer=norm_layer, enc=IN_norm, dec=RAIN_norm
                 )
 
@@ -386,7 +386,7 @@ class RainNet(nn.Module):
             )
 
         self.out_layer = nn.Sequential(
-            nn.ConvTranspose2d(2*ngf, output_nc, 4, 1, 2),
+            nn.ConvTranspose2d(2*ngf, output_nc, 8, 2, 3),
             nn.Tanh()
         )
 
