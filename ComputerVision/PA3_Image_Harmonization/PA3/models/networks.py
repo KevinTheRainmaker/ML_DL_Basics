@@ -350,51 +350,89 @@ class RainNet(nn.Module):
 
     def forward(self, x, mask):
         # fill the blank
-        x0 = self.layer0(x)
+        # x0 = self.layer0(x)
 
-        x1 = self.layer1(x0)
-        x1 = self.layer1_norm(x1)
+        # x1 = self.layer1(x0)
+        # x1 = self.layer1_norm(x1)
 
-        x2 = self.layer2(x1)
-        x2 = self.layer2_norm(x2)
+        # x2 = self.layer2(x1)
+        # x2 = self.layer2_norm(x2)
 
-        x3 = self.layer3(x2)
-        x3 = self.layer3_norm(x3)
+        # x3 = self.layer3(x2)
+        # x3 = self.layer3_norm(x3)
 
-        ux = self.unet_block(x3, mask)
+        # ux = self.unet_block(x3, mask)
 
-        dx2 = self.layer4(ux)
-        if self.use_rain:
-            dx2 = self.layer4_norm(dx2, mask)  # for RAIN
+        # dx2 = self.layer4(ux)
+        # if self.use_rain:
+        #     dx2 = self.layer4_norm(dx2, mask)  # for RAIN
+        # else:
+        #     dx2 = self.layer4_norm(dx2)
+
+        # dx2 = torch.cat([dx2, x2], dim=1)
+        # if self.use_attention:
+        #     dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
+
+        # dx1 = self.layer5(dx2)
+        # if self.use_rain:
+        #     dx1 = self.layer5_norm(dx1, mask)
+        # else:
+        #     dx1 = self.layer5_norm(dx1)
+
+        # dx1 = torch.cat([dx1, x1], dim=1)
+        # if self.use_attention:
+        #     dx1 = self.layer5Att(dx1) @ dx1
+
+        # dx0 = self.layer6(dx1)
+        # if self.use_rain == 1:
+        #     dx0 = self.layer6_norm(dx0, mask)
+        # else:
+        #     dx0 = self.layer6_norm(dx0)
+
+        # dx0 = torch.cat([dx0, x0], dim=1)
+        # if self.use_attention:
+        #     dx0 = self.layer6Att(dx0) @ dx0
+
+        # out = self.out_layer(dx0)
+        x0 = self.model_layer0(x)
+        x1 = self.model_layer1(x0)
+        x1 = self.model_layer1norm(x1)
+
+        x2 = self.model_layer2(x1)
+        x2 = self.model_layer2norm(x2)
+
+        x3 = self.model_layer3(x2)
+        x3 = self.model_layer3norm(x3)
+
+        ox3 = self.unet_block(x3, mask)
+        ox2 = self.model_layer11(ox3)
+        if self.model_layer11norm._get_name() in self.norm_namebuffer:
+            ox2 = self.model_layer11norm(ox2, mask)
         else:
-            dx2 = self.layer4_norm(dx2)
-
-        dx2 = torch.cat([dx2, x2], dim=1)
+            ox2 = self.model_layer11norm(ox2)
+        ox2 = torch.cat([x2, ox2], 1)
         if self.use_attention:
-            dx2 = self.layer4Att(dx2) @ dx2  # element-wise multiplication
+            ox2 = self.model_layer11att(ox2) * ox2
 
-        dx1 = self.layer5(dx2)
-        if self.use_rain:
-            dx1 = self.layer5_norm(dx1, mask)
+        ox1 = self.model_layer12(ox2)
+        if self.model_layer12norm._get_name() in self.norm_namebuffer:
+            ox1 = self.model_layer12norm(ox1, mask)
         else:
-            dx1 = self.layer5_norm(dx1)
-
-        dx1 = torch.cat([dx1, x1], dim=1)
+            ox1 = self.model_layer12norm(ox1)
+        ox1 = torch.cat([x1, ox1], 1)
         if self.use_attention:
-            dx1 = self.layer5Att(dx1) @ dx1
+            ox1 = self.model_layer12att(ox1) * ox1
 
-        dx0 = self.layer6(dx1)
-        if self.use_rain == 1:
-            dx0 = self.layer6_norm(dx0, mask)
+        ox0 = self.model_layer13(ox1)
+        if self.model_layer13norm._get_name() in self.norm_namebuffer:
+            ox0 = self.model_layer13norm(ox0, mask)
         else:
-            dx0 = self.layer6_norm(dx0)
-
-        dx0 = torch.cat([dx0, x0], dim=1)
+            ox0 = self.model_layer13norm(ox0)
+        ox0 = torch.cat([x0, ox0], 1)
         if self.use_attention:
-            dx0 = self.layer6Att(dx0) @ dx0
+            ox0 = self.model_layer13att(ox0) * ox0
 
-        out = self.out_layer(dx0)
-
+        out = self.model_out(ox0)
         return out
 
     def processImage(self, x, mask, background=None):
