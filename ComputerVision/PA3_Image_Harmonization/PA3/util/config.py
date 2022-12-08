@@ -16,7 +16,7 @@ cfg.checkpoints_dir = './checkpoints'
 cfg.crop_size = 256
 cfg.load_size = 256
 cfg.num_threads = 11
-cfg.preprocess = 'none' # 
+cfg.preprocess = 'none'
 # ------ model -------------
 cfg.gan_mode = 'wgangp'
 cfg.model = 'rainnet'
@@ -45,9 +45,11 @@ def get_cfg_defaults():
     # This is for the "local variable" use pattern
     return cfg.clone()
 
+
 def update_cfg(cfg, cfg_file):
     cfg.merge_from_file(cfg_file)
     return cfg.clone()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
