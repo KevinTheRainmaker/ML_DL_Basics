@@ -349,7 +349,7 @@ class RainNet(nn.Module):
             self.model_layer13att = nn.Sequential(
                 nn.Conv2d(ngf*2, ngf*2, kernel_size=1, stride=1), nn.Sigmoid())
         self.model_out = nn.Sequential(nn.ReLU(True), nn.ConvTranspose2d(
-            ngf * 2, output_nc, kernel_size=8, str3de=2, padding=1), nn.Tanh())
+            ngf * 2, output_nc, kernel_size=8, stride=2, padding=3), nn.Tanh())
 
     def forward(self, x, mask):
         # fill the blank
